@@ -24,42 +24,47 @@ For the initial Minimum Viable Product (MVP), the system focuses specifically on
 PS81-AI-NWP-Forecast-Blending/
 ├── README.md
 ├── .gitignore
-├── requirements.txt
 ├── .env.example
-│
+├── requirements.txt
+├── dashboard/               # Streamlit or web dashboard app
 ├── data/
-│   ├── raw/                  # Unprocessed NWP model outputs and observational data (git-ignored)
-│   ├── processed/            # Regridded, aligned, and cleaned datasets ready for modeling (git-ignored)
-│   └── README.md             # Documentation on data schemas and sourcing guidelines
-│
-├── notebooks/                # Exploratory Data Analysis (EDA) and prototyping notebooks
-│   └── .gitkeep
-│
-├── docs/                     # Project documentation and architectural diagrams
-│   └── README.md
-│
-├── tests/                    # Unit tests and integration tests
+│   ├── README.md
+│   ├── raw/                 # Unprocessed NWP and observational datasets
+│   └── processed/           # Regridded, aligned, and cleaned datasets
+├── docs/
+│   ├── README.md
+│   ├── architecture.md
+│   ├── methodology.md
+│   └── team-workflow.md
+├── models/                  # Model artifacts and trained checkpoints
+├── notebooks/               # EDA and experimentation notebooks
+├── reports/                 # Generated summaries and outputs
+├── scripts/                 # Utility and automation scripts
+├── src/
 │   ├── __init__.py
-│   └── .gitkeep
-│
-└── src/                      # Source code package for the blending system
-    ├── __init__.py
-    ├── config.py             # Central configuration management (paths, model settings, parameters)
-    ├── data/                 # Ingestion, regridding, spatial matching, and loading modules
-    │   ├── __init__.py
-    │   └── .gitkeep
-    ├── features/             # Feature engineering (lead time encoding, weather regimes, skill indices)
-    │   ├── __init__.py
-    │   └── .gitkeep
-    ├── models/               # AI/ML blending models (Ensemble, Regressors, Neural networks)
-    │   ├── __init__.py
-    │   └── .gitkeep
-    ├── evaluation/           # Verification metrics (RMSE, Threat Score, Bias, Skill Score)
-    │   ├── __init__.py
-    │   └── .gitkeep
-    └── utils/                # Helper utilities (logging, spatial transforms, IO helpers)
-        ├── __init__.py
-        └── .gitkeep
+│   ├── config.py            # Configuration and project settings
+│   ├── blending/
+│   │   ├── __init__.py
+│   │   └── ...
+│   ├── data/
+│   │   ├── __init__.py
+│   │   └── ...
+│   ├── evaluation/
+│   │   ├── __init__.py
+│   │   └── ...
+│   ├── features/
+│   │   ├── __init__.py
+│   │   └── ...
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── ...
+│   └── utils/
+│       ├── __init__.py
+│       └── ...
+├── tests/
+│   ├── __init__.py
+│   └── ...
+└── .venv/                   # Local virtual environment (optional)
 ```
 
 ---
@@ -96,9 +101,13 @@ PS81-AI-NWP-Forecast-Blending/
 
 4. Configure environment variables:
    ```bash
+   # Linux/macOS
    cp .env.example .env
-   # Edit .env to configure local data paths and settings
+
+   # Windows PowerShell
+   Copy-Item .env.example .env
    ```
+   Then edit `.env` to configure local data paths and settings.
 
 ---
 
