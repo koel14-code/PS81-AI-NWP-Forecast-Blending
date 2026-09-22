@@ -1,0 +1,32 @@
+# Core Data Processing & Numerical Computing
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# Geospatial & Meteorological Data Processing
+xarray>=2023.5.0
+netCDF4>=1.6.3
+cfgrib>=0.9.10.4; sys_platform != 'win32'  # GRIB file reading (requires eccodes)
+h5netcdf>=1.2.0
+
+# Machine Learning & AI Frameworks
+scikit-learn>=1.2.2
+lightgbm>=3.3.5
+xgboost>=1.7.5
+torch>=2.0.0
+
+# Statistical Analysis & Metrics
+statsmodels>=0.14.0
+
+# Data Visualization
+matplotlib>=3.7.1
+seaborn>=0.12.2
+
+# Configuration & Utilities
+python-dotenv>=1.0.0
+pyyaml>=6.0
+tqdm>=4.65.0
+
+# Testing & Quality Assurance
+pytest>=7.3.1
+pytest-cov>=4.1.0
