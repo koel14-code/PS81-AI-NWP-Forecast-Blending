@@ -1,7 +1,7 @@
 import React from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 
-export function ForecastChart({ series = [], title = "Forecast Signal" }) {
+export function ForecastChart({ series = [], title = "Forecast Signal", unit = "mm/h", variable = "precipitation" }) {
   if (!series || series.length === 0) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -21,6 +21,20 @@ export function ForecastChart({ series = [], title = "Forecast Signal" }) {
     };
   });
 
+  const blendKey =
+    variable === 'temperature'
+      ? 'blended_temperature'
+      : variable === 'wind'
+      ? 'blended_wind'
+      : 'blended_precipitation';
+
+  const refKey =
+    variable === 'temperature'
+      ? 'reference_temperature'
+      : 'reference_precipitation';
+
+  const hasReference = formattedData[0]?.[refKey] !== undefined;
+
   return (
     <div className="glass-card">
       <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.85rem' }}>
@@ -31,7 +45,7 @@ export function ForecastChart({ series = [], title = "Forecast Signal" }) {
           <LineChart data={formattedData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.06)" />
             <XAxis dataKey="timeLabel" stroke="#64748B" tick={{ fill: '#94A3B8', fontSize: 11 }} />
-            <YAxis stroke="#64748B" tick={{ fill: '#94A3B8', fontSize: 11 }} unit=" mm/h" />
+            <YAxis stroke="#64748B" tick={{ fill: '#94A3B8', fontSize: 11 }} unit={` ${unit}`} />
             <Tooltip
               contentStyle={{
                 background: 'rgba(18, 24, 32, 0.95)',
@@ -42,10 +56,21 @@ export function ForecastChart({ series = [], title = "Forecast Signal" }) {
                 fontSize: '12px'
               }}
               labelStyle={{ color: '#F8FAFC', fontWeight: 700 }}
+              formatter={(val) => [`${typeof val === 'number' ? val.toFixed(2) : val} ${unit}`, '']}
             />
             <Legend wrapperStyle={{ color: '#94A3B8', fontSize: '12px', paddingTop: '8px' }} />
             
-            <Line type="monotone" dataKey="reference_precipitation" name="ERA5 Reference" stroke="#475569" strokeDasharray="4 4" strokeWidth={1.8} dot={false} />
+            {hasReference && (
+              <Line
+                type="monotone"
+                dataKey={refKey}
+                name={variable === 'temperature' ? 'Station Ref (42807)' : 'ERA5 Reference'}
+                stroke="#475569"
+                strokeDasharray="4 4"
+                strokeWidth={1.8}
+                dot={false}
+              />
+            )}
             {formattedData[0]?.ECMWF_IFS !== undefined && (
               <Line type="monotone" dataKey="ECMWF_IFS" name="ECMWF IFS" stroke="#64748B" strokeWidth={1.6} dot={false} opacity={0.8} />
             )}
@@ -55,7 +80,7 @@ export function ForecastChart({ series = [], title = "Forecast Signal" }) {
             {formattedData[0]?.DWD_ICON !== undefined && (
               <Line type="monotone" dataKey="DWD_ICON" name="DWD ICON" stroke="#10B981" strokeWidth={1.6} dot={false} opacity={0.8} />
             )}
-            <Line type="monotone" dataKey="blended_precipitation" name="SkyBlend AI" stroke="#F8FAFC" strokeWidth={2.8} dot={false} />
+            <Line type="monotone" dataKey={blendKey} name="SkyBlend AI" stroke="#F8FAFC" strokeWidth={2.8} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

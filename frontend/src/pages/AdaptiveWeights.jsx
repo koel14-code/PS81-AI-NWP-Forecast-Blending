@@ -5,6 +5,8 @@ import { api } from '../api/client';
 import { SectionHeader } from '../components/SectionHeader';
 import { LoadingState, ErrorState } from '../components/LoadingState';
 import { WeightChart } from '../components/WeightChart';
+import { VariableSelector } from '../components/VariableSelector';
+import { WindUnavailableNotice } from '../components/WindUnavailableNotice';
 
 const LOCATIONS = [
   { id: 'kolkata', label: 'Kolkata' },
@@ -87,11 +89,15 @@ function CircularGauge({ value = 0, color = '#CBD5E1', label = '', modelName = '
 export function AdaptiveWeights() {
   const [location, setLocation] = useState('kolkata');
   const [leadDay, setLeadDay] = useState(1);
+  const [variable, setVariable] = useState('precipitation');
 
   const { data, loading, error, retry } = useApi(
-    () => api.getWeights(location, leadDay),
-    [location, leadDay]
+    () => api.getWeights(location, leadDay, variable),
+    [location, leadDay, variable]
   );
+
+  const isWind = variable === 'wind';
+  const isTemp = variable === 'temperature';
 
   return (
     <motion.div
@@ -104,13 +110,15 @@ export function AdaptiveWeights() {
       <SectionHeader
         eyebrow="DYNAMIC MODEL WEIGHTING"
         title="ADAPTIVE MODEL INTELLIGENCE"
-        subtitle="How SkyBlend AI dynamically balances model contributions based on location, lead-time and historical skill."
+        subtitle="How SkyBlend AI dynamically balances model contributions based on location, lead-time and forecast context."
       />
 
-      {/* Minimal Control Bar */}
+      {/* Control Bar: Variable + Location + Lead Time */}
       <div className="control-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', margin: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '200px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+          <VariableSelector value={variable} onChange={(v) => setVariable(v)} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '180px' }}>
             <label className="form-label">LOCATION</label>
             <select
               className="form-select"
@@ -151,9 +159,11 @@ export function AdaptiveWeights() {
       </div>
 
       {loading ? (
-        <LoadingState message={`Calculating adaptive contribution weights for ${location.toUpperCase()}...`} />
+        <LoadingState message={`Calculating adaptive contribution weights for ${location.toUpperCase()} (${variable})...`} />
       ) : error ? (
         <ErrorState error={error} onRetry={retry} />
+      ) : isWind ? (
+        <WindUnavailableNotice message="Adaptive weights for wind forecasting require multi-model NWP 10m wind vector inputs, which are pending ingestion." />
       ) : (
         <>
           {/* Main Flowing Stream & Engine Process Composition */}
@@ -161,8 +171,8 @@ export function AdaptiveWeights() {
             {/* Live Flowing Stream Visualization */}
             <motion.div layout transition={{ duration: 0.4 }}>
               <WeightChart
-                series={data.series}
-                title={`MODEL CONTRIBUTION FLOW — ${data.location.toUpperCase()} (Day ${data.lead_day})`}
+                series={data?.series || []}
+                title={`${variable.toUpperCase()} MODEL CONTRIBUTION FLOW — ${data?.location?.toUpperCase()} (DAY ${data?.lead_day})`}
               />
             </motion.div>
 
@@ -258,10 +268,15 @@ export function AdaptiveWeights() {
                   F_blended = ∑ (w_i × F_i)
                 </div>
                 <div style={{ fontSize: 'var(--font-small)', color: 'var(--text-muted)', fontFamily: 'monospace', marginBottom: '0.5rem' }}>
-                  subject to  ∑ w_i = 1,  w_i ≥ 0
+                  subject to ∑ w_i = 1, w_i ≥ 0
                 </div>
                 <div style={{ fontSize: 'var(--font-small)', color: 'var(--text-main)', lineHeight: 'var(--lh-relaxed)' }}>
-                  SkyBlend AI dynamically calculates contribution weights per forecast source and combines them into a single optimal prediction.
+                  The system estimates each model&apos;s expected error for the selected forecast context and assigns larger weights to models expected to be more reliable.
+                  {isTemp && (
+                    <span style={{ display: 'block', marginTop: '6px', color: '#CBD5E1', fontStyle: 'italic' }}>
+                      (Temperature weights use continuous consensus without rainfall peak-lift.)
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -270,26 +285,26 @@ export function AdaptiveWeights() {
           {/* Current Adaptive Contribution Readout Gauges */}
           <div className="glass-card">
             <div style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>
-              CURRENT ADAPTIVE CONTRIBUTION READOUTS — {data.location.toUpperCase()} (DAY {data.lead_day})
+              CURRENT ADAPTIVE CONTRIBUTION READOUTS — {data?.location?.toUpperCase()} (DAY {data?.lead_day})
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.1rem' }}>
               <CircularGauge
                 modelName="ECMWF IFS"
                 label="European Centre Model"
-                value={data.means.ECMWF_IFS || 0}
+                value={data?.means?.ECMWF_IFS || 0}
                 color="#64748B"
               />
               <CircularGauge
                 modelName="NOAA GFS"
                 label="US Global Forecast"
-                value={data.means.NOAA_GFS || 0}
+                value={data?.means?.NOAA_GFS || 0}
                 color="#8B5CF6"
               />
               <CircularGauge
                 modelName="DWD ICON"
                 label="German Weather Service"
-                value={data.means.DWD_ICON || 0}
+                value={data?.means?.DWD_ICON || 0}
                 color="#34D399"
               />
             </div>

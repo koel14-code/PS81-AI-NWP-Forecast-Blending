@@ -11,9 +11,14 @@ import {
   CloudSun, 
   Cpu, 
   GitMerge, 
+  SlidersHorizontal,
   BadgeCheck, 
   AlertTriangle,
-  HelpCircle
+  LayoutDashboard,
+  HelpCircle,
+  ShieldCheck,
+  FlaskConical,
+  Database
 } from 'lucide-react';
 
 const STAGE_VISUALS = {
@@ -23,8 +28,10 @@ const STAGE_VISUALS = {
   4: { icon: CloudSun, color: '#8B5CF6' },
   5: { icon: Cpu, color: '#F59E0B' },
   6: { icon: GitMerge, color: '#F8FAFC' },
-  7: { icon: BadgeCheck, color: '#10B981' },
+  7: { icon: SlidersHorizontal, color: '#38BDF8' },
   8: { icon: AlertTriangle, color: '#EF4444' },
+  9: { icon: BadgeCheck, color: '#10B981' },
+  10: { icon: LayoutDashboard, color: '#34D399' },
 };
 
 export function Methodology() {
@@ -56,7 +63,7 @@ export function Methodology() {
       <SectionHeader
         eyebrow="SYSTEM PIPELINE & ARCHITECTURE"
         title="HOW SKYBLEND AI WORKS"
-        subtitle="End-to-end adaptive machine learning forecast blending architecture."
+        subtitle="End-to-end adaptive machine learning forecast blending architecture across multiple weather variables."
       />
 
       {/* Flowing Scientific Pipeline Grid from API */}
@@ -65,7 +72,7 @@ export function Methodology() {
           SYSTEM PROCESSING PIPELINE ({pipelineStages.length} STAGES)
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.15rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.15rem' }}>
           {pipelineStages.map((stage) => {
             const Icon = stage.icon;
             return (
@@ -104,6 +111,74 @@ export function Methodology() {
         </div>
       </div>
 
+      {/* Production vs Research Transparency Card (Part 15 & Part 20) */}
+      <div className="glass-card" style={{ padding: '1.6rem' }}>
+        <div style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>
+          PRODUCTION ARCHITECTURE VS. RESEARCH EXPERIMENTS
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+          {/* Production Validated */}
+          <div style={{ background: 'rgba(16, 185, 129, 0.04)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '12px', padding: '1.1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <ShieldCheck size={18} color="#34D399" />
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#34D399', letterSpacing: '0.04em' }}>
+                PRODUCTION-VALIDATED (FROZEN BASELINE)
+              </div>
+            </div>
+            <ul style={{ paddingLeft: '1.2rem', margin: 0, fontSize: 'var(--font-small)', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+              <li><b>Precipitation Blending</b>: Phase 6 HistGradientBoosting models in <code>models/expanded_full_year/</code>.</li>
+              <li><b>Calibration</b>: Peak-lift α = 0.35, rain threshold τ = 2.0 mm/h.</li>
+              <li><b>Verification</b>: July 2024 held-out evaluation & independent Kolkata WMO 42807 ground-station test.</li>
+            </ul>
+          </div>
+
+          {/* Implemented Extension */}
+          <div style={{ background: 'rgba(56, 189, 248, 0.04)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '12px', padding: '1.1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <SlidersHorizontal size={18} color="#38BDF8" />
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.04em' }}>
+                IMPLEMENTED EXTENSIONS
+              </div>
+            </div>
+            <ul style={{ paddingLeft: '1.2rem', margin: 0, fontSize: 'var(--font-small)', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+              <li><b>2m Temperature Blending</b>: Continuous error prediction in <code>models/temperature/</code> (no peak-lift).</li>
+              <li><b>Station Benchmark</b>: WMO 42807 test (MAE 1.0144°C vs ECMWF 1.1180°C).</li>
+              <li><b>Diagnostic Guidance</b>: Weather-regime context & 38.0°C heat-hazard signals.</li>
+            </ul>
+          </div>
+
+          {/* Research Only */}
+          <div style={{ background: 'rgba(168, 85, 247, 0.04)', border: '1px solid rgba(168, 85, 247, 0.2)', borderRadius: '12px', padding: '1.1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <FlaskConical size={18} color="#A855F7" />
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#A855F7', letterSpacing: '0.04em' }}>
+                RESEARCH-ONLY (NOT IN PRODUCTION)
+              </div>
+            </div>
+            <ul style={{ paddingLeft: '1.2rem', margin: 0, fontSize: 'var(--font-small)', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+              <li><b>Phase 8A & 9</b>: Atmospheric predictor & continuous pre-training experiments.</li>
+              <li><b>Phase 10A / 10B</b>: Experimental dual-gate architecture (rejected from production).</li>
+              <li><b>Phase 11</b>: Hybrid multi-layer gating research sandbox.</li>
+            </ul>
+          </div>
+
+          {/* Unvalidated / Telemetry Pending */}
+          <div style={{ background: 'rgba(100, 116, 139, 0.04)', border: '1px solid rgba(100, 116, 139, 0.2)', borderRadius: '12px', padding: '1.1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <Database size={18} color="#94A3B8" />
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#94A3B8', letterSpacing: '0.04em' }}>
+                TELEMETRY PENDING INGESTION
+              </div>
+            </div>
+            <ul style={{ paddingLeft: '1.2rem', margin: 0, fontSize: 'var(--font-small)', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+              <li><b>10m Wind Speed & Vectors</b>: Multi-model (u10, v10) fields pending repository ingestion.</li>
+              <li><b>Zero Synthetic Numbers</b>: Wind forecasts and validation metrics are strictly withheld until telemetry arrives.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       {/* WHY MULTIPLE MODELS? Visual Explanation Panel */}
       <div className="glass-card" style={{
         background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.02) 100%)',
@@ -118,13 +193,13 @@ export function Methodology() {
         </div>
 
         <p style={{ fontSize: 'var(--font-body)', color: 'var(--text-main)', lineHeight: 'var(--lh-relaxed)', margin: 0, fontWeight: 'var(--fw-body)' }}>
-          Numerical weather prediction models exhibit localized biases and varying skill depending on geographic region, forecast lead horizon, and weather situation. Rather than relying on a single static model or fixed average, <b>SkyBlend AI</b> dynamically learns how much contribution to assign to each forecast source for every specific situation.
+          Numerical weather prediction models exhibit localized biases and varying skill depending on geographic region, season, forecast lead horizon, and weather situation. Rather than relying on a single static model or fixed average, <b>SkyBlend AI</b> dynamically learns how much contribution to assign to each forecast source for every specific situation.
         </p>
       </div>
 
       {/* Demonstration Scope Disclaimer */}
       <div className="disclaimer-box">
-        <b>Validation Scope</b>: Demonstrated across 6 Indian cities, 3 NWP sources, and July 2024 monsoon historical evaluation data.
+        <b>Validation Scope</b>: Demonstrated across 6 Indian cities, 3 NWP sources, and July 2024 monsoon historical evaluation data. Performance varies by variable, location, regime and evaluation period.
       </div>
     </motion.div>
   );

@@ -64,15 +64,18 @@ async function fetchApi(endpoint) {
 
 export const api = {
   getHealth: () => fetchApi('/api/health'),
-  getOverview: () => fetchApi('/api/overview'),
-  getForecast: (location = 'kolkata', leadDay = 1) =>
-    fetchApi(`/api/forecast?location=${encodeURIComponent(location)}&lead_day=${leadDay}`),
-  getWeights: (location = 'kolkata', leadDay = 1) =>
-    fetchApi(`/api/weights?location=${encodeURIComponent(location)}&lead_day=${leadDay}`),
-  getSpatialWeights: (leadDay = 1) =>
-    fetchApi(`/api/spatial-weights?lead_day=${leadDay}`),
-  getVerification: () => fetchApi('/api/verification'),
-  getExtremeSignal: (location = 'kolkata', leadDay = 1) =>
-    fetchApi(`/api/extreme-signal?location=${encodeURIComponent(location)}&lead_day=${leadDay}`),
-  getMethodology: () => fetchApi('/api/methodology'),
+  getOverview: (variable = 'precipitation') =>
+    fetchApi(`/api/overview?variable=${encodeURIComponent(variable)}`),
+  getForecast: (location = 'kolkata', leadDay = 1, variable = 'precipitation') =>
+    fetchApi(`/api/forecast?location=${encodeURIComponent(location)}&lead_day=${leadDay}&variable=${encodeURIComponent(variable)}`),
+  getWeights: (location = 'kolkata', leadDay = 1, variable = 'precipitation') =>
+    fetchApi(`/api/weights?location=${encodeURIComponent(location)}&lead_day=${leadDay}&variable=${encodeURIComponent(variable)}`),
+  getSpatialWeights: (leadDay = 1, variable = 'precipitation') =>
+    fetchApi(`/api/spatial-weights?lead_day=${leadDay}&variable=${encodeURIComponent(variable)}`),
+  getVerification: (variable = 'precipitation') =>
+    fetchApi(`/api/verification?variable=${encodeURIComponent(variable)}`),
+  getExtremeSignal: (location = 'kolkata', leadDay = 1, variable = 'precipitation') =>
+    fetchApi(`/api/extreme-signal?location=${encodeURIComponent(location)}&lead_day=${leadDay}&variable=${encodeURIComponent(variable)}`),
+  getMethodology: (variable = 'precipitation') =>
+    fetchApi(`/api/methodology?variable=${encodeURIComponent(variable)}`),
 };

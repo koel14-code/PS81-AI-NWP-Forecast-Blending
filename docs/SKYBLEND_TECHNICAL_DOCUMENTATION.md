@@ -1232,6 +1232,11 @@ The most important supporting project artifacts are:
 -   `reports/api_frontend_truth_audit.md`
 -   `reports/final_end_to_end_verification.md`
 -   `tests/test_data_integrity.py`
+-   `tests/test_multi_variable_api.py`
+-   `reports/sih_alignment_final_audit.md`
+-   `reports/temperature_station_validation_kolkata.md`
+-   `src/blending/temperature_blender.py`
+-   `src/blending/regimes.py`
 
 These artifacts should be treated as complementary layers:
 
@@ -1243,6 +1248,10 @@ Architecture & quick understanding
 Technical Documentation
   ↓
 Full scientific/engineering explanation
+
+SIH Alignment Audit
+  ↓
+Factual requirement-by-requirement audit (reports/sih_alignment_final_audit.md)
 
 Production Freeze Audit
   ↓
@@ -1256,3 +1265,70 @@ Research Reports
   ↓
 Experimental evidence and future-development analysis
 ```
+
+------------------------------------------------------------------------
+
+## 33. Multi-Variable Forecasting Architecture
+
+To align with the SIH problem statement ("optimized forecast for rainfall, temperature, wind and extreme-weather indicators"), SkyBlend AI extends the core blending methodology across meteorological variables through a clean variable abstraction:
+
+$$\text{variable} \in \{\text{precipitation}, \, \text{temperature}, \, \text{wind}\}$$
+
+### Architectural Design Principles
+1. **Separation of Physics:** Different weather variables operate under fundamentally distinct physics. Precipitation is intermittent, non-negative, and exhibits high skewness, requiring convective peak-lift ($\alpha=0.35, \tau=2.0\text{ mm/h}$) to combat ensemble dampening. In contrast, 2m air temperature is continuous and normally distributed, making peak-lift physically inappropriate.
+2. **Variable-Agnostic API Contracts:** All REST endpoints support `variable=precipitation|temperature|wind` via query parameter, defaulting to `precipitation` for 100% backward compatibility.
+3. **No Synthetic Numbers:** Where genuine source data exists (precipitation and temperature), real trained models and empirical metrics are delivered. Where source data is absent (surface wind), the endpoint returns `status: "unavailable"` and explicit reasons rather than fabricating fake synthetic trajectories.
+
+------------------------------------------------------------------------
+
+## 34. 2m Temperature Adaptive Blending Pipeline
+
+### 34.1 Mathematical Formulation
+For each NWP source $m \in \{\text{ECMWF\_IFS}, \, \text{NOAA\_GFS}, \, \text{DWD\_ICON}\}$:
+
+1. **Error Prediction:**
+   $$\hat{e}_m^{\text{temp}}(t) = \max\left(0.0, \, \mathcal{M}_m^{\text{temp}}(X_{\text{temp}}(t))\right)$$
+   where $\mathcal{M}_m^{\text{temp}}$ is a `HistGradientBoostingRegressor` trained on 2m temperature errors.
+
+2. **Inverse-Error Normalization:**
+   $$\mathcal{R}_m(t) = \frac{1}{\hat{e}_m^{\text{temp}}(t) + \epsilon}, \quad w_m(t) = \frac{\mathcal{R}_m(t)}{\sum_j \mathcal{R}_j(t)}$$
+
+3. **Continuous Consensus Blend (Zero Peak-Lift):**
+   $$F_{\text{temp}}(t) = \sum_{m=1}^3 w_m(t) \cdot f_m^{\text{temp}}(t)$$
+   Peak-lift is strictly omitted ($\alpha=0$) to preserve energy balance and prevent unnatural daytime over-warming.
+
+### 34.2 Empirical Ground-Station Benchmark (WMO 42807 Kolkata Alipore)
+Evaluated across 3,957 unique station-hours during the Pre-Monsoon test split (April 7 – May 31, 2024):
+
+| Forecast Approach | MAE (°C) ↓ | RMSE (°C) ↓ | Bias (°C) | Pearson $r$ ↑ |
+| :--- | :---: | :---: | :---: | :---: |
+| **ECMWF IFS** | 1.1180 | 1.5792 | -0.3252 | 0.9264 |
+| **NOAA GFS** | 2.5064 | 3.0854 | +2.2694 | 0.8964 |
+| **DWD ICON** | 1.3812 | 1.8033 | +0.9732 | 0.9350 |
+| **Simple Average** | 1.3495 | 1.7277 | +0.9725 | 0.9409 |
+| **Historical Weighted** | 1.1658 | 1.5270 | +0.6844 | 0.9446 |
+| **SkyBlend Temperature** | **1.0144** | **1.3772** | **+0.4963** | **0.9496** |
+
+**Findings:** NOAA GFS exhibits a substantial positive daytime bias (+2.27°C) over Kolkata. SkyBlend dynamically downweights GFS during high-bias hours, achieving the lowest overall error (MAE 1.0144°C, RMSE 1.3772°C) and highest correlation ($r=0.9496$).
+
+------------------------------------------------------------------------
+
+## 35. 10m Wind Speed Telemetry Status & Missing Data Documentation
+
+- **Data Reality:** Multi-model NWP 10m surface wind components ($u_{10}, v_{10}$) and physical anemometer ground reference data were not included in the original training or demonstration datasets.
+- **Architectural Handling:** Endpoints and UI components cleanly intercept wind queries, returning structured `status: "unavailable"` and displaying informative workstation notices (`WindUnavailableNotice.jsx`).
+- **Activation Roadmap:** When ECMWF, GFS, and ICON 10m wind fields are ingested, wind speed will be derived via vector magnitude ($S = \sqrt{u_{10}^2 + v_{10}^2}$), and continuous error models will be trained analogously to temperature.
+
+------------------------------------------------------------------------
+
+## 36. SIH Problem Statement Alignment Matrix
+
+| SIH Requirement | Current Implementation | Repository Evidence | Remaining Limitation |
+| :--- | :--- | :--- | :--- |
+| **Dynamically blended forecast** | Dynamic ML error prediction estimating model reliability at every forecast hour. Member forecasts (ECMWF, GFS, ICON) combined via normalized convex weighting. Convective peak-lift ($\alpha=0.35$) for rainfall; continuous consensus for temperature. | `src/blending/ml_blender.py`<br/>`src/blending/temperature_blender.py`<br/>`models/expanded_full_year/`<br/>`models/temperature/` | Wind forecast cleanly withheld (`status: "unavailable"`) pending NWP 10m wind vector dataset ingestion. |
+| **Model weight maps** | Geospatial blending matrix displaying dynamic mean contribution weights and dominant model across all six demonstration metropolitan areas across 1–3 lead days. | `data/processed/multilocation_rainfall_spatial_weights_day1_to_day3.csv`<br/>`src/api/main.py` (`get_spatial_weights`) | 6 demonstration metropolitan coordinates; not a continuous nationwide spatial raster. |
+| **Improved forecast skill** | Chronological out-of-sample held-out benchmark evaluation demonstrating quantitative error reduction against individual NWP members, simple arithmetic averaging, and historical weighted baselines. | `data/processed/evaluation_comparison_metrics.csv`<br/>`data/processed/temperature_test_performance.csv`<br/>`reports/independent_station_validation_kolkata.md` | Skill improvement varies by metric; ECMWF retains higher POD on July holdout (0.7808 vs 0.6301). Wind skill unverified. |
+| **Extreme weather guidance** | Variable-aware analytical hazard guidance. Calibrated precipitation advisory threshold ($\ge 1.0\text{ mm/h}$) and diurnal heat hazard threshold ($\ge 38.0^\circ\text{C}$). High-wind signal labeled "Not configured / insufficient evidence". Explicit UI notices. | `src/api/main.py` (`get_extreme_signal`)<br/>`src/blending/regimes.py` | Analytical indicators for decision support prototypes; NOT official IMD disaster warnings. |
+| **Operational workflow/dashboard** | Production-ready stack: Asynchronous FastAPI REST service (<30ms latency) serving real-time inference, coupled with React 18 / Vite workstation adhering to charcoal/graphite workstation visual language across 7 dedicated views. | `src/api/main.py`<br/>`frontend/src/`<br/>`frontend/dist/` | Operates on processed demonstration datasets re-anchored for display; live 00Z/12Z NWP ingestion pipeline is future work. |
+| **Optimized forecast for rainfall, temperature, wind and extreme indicators** | Rainfall: Fully optimized & production-validated (Phase 6).<br/>Temperature: Fully implemented extension (continuous adaptive ML blender, WMO 42807 evaluation).<br/>Wind: Cleanly architected; exposed as "unavailable / pending telemetry" in adherence to scientific honesty.<br/>Extreme indicators: Variable-aware signals implemented for rainfall and temperature. | `models/expanded_full_year/`<br/>`models/temperature/`<br/>`src/blending/ml_blender.py`<br/>`src/blending/temperature_blender.py`<br/>`data/processed/multilocation_temperature_forecast_inputs.csv` | Multi-model NWP 10m wind vector forecasts ($u_{10}, v_{10}$) are not present in repository, precluding complete optimization of wind until raw telemetry is ingested. |
+

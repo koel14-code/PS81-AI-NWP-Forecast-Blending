@@ -5,15 +5,21 @@ import { api } from '../api/client';
 import { SectionHeader } from '../components/SectionHeader';
 import { LoadingState, ErrorState } from '../components/LoadingState';
 import { WeightMap } from '../components/WeightMap';
+import { VariableSelector } from '../components/VariableSelector';
+import { WindUnavailableNotice } from '../components/WindUnavailableNotice';
 
 export function SpatialIntelligence() {
   const [leadDay, setLeadDay] = useState(1);
   const [selectedCityId, setSelectedCityId] = useState('kolkata');
+  const [variable, setVariable] = useState('precipitation');
 
   const { data, loading, error, retry } = useApi(
-    () => api.getSpatialWeights(leadDay),
-    [leadDay]
+    () => api.getSpatialWeights(leadDay, variable),
+    [leadDay, variable]
   );
+
+  const isWind = variable === 'wind';
+  const isTemp = variable === 'temperature';
 
   const rawLocations = data?.locations || [];
   const hasLocations = Array.isArray(rawLocations) && rawLocations.length > 0;
@@ -36,6 +42,10 @@ export function SpatialIntelligence() {
   const lon = currentCity ? (currentCity.longitude ?? currentCity.lon ?? 0) : 0;
   const dominantModel = currentCity ? (currentCity.dominant_model || '').replace(/_/g, ' ') : '';
 
+  const mapBadgeLabel = isTemp
+    ? 'Temperature Consensus Map'
+    : 'Precipitation production map';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -50,37 +60,45 @@ export function SpatialIntelligence() {
         subtitle="Explore dynamic NWP model contribution weights across India's demonstration metros."
       />
 
-      {/* Control Strip */}
+      {/* Control Strip: Variable + Horizon + Color Legend */}
       <div className="control-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', margin: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            DEMONSTRATION HORIZON:
-          </div>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {[1, 2, 3].map((day) => (
-              <button
-                key={day}
-                onClick={() => setLeadDay(day)}
-                style={{
-                  padding: '6px 16px',
-                  borderRadius: '8px',
-                  fontSize: 'var(--font-body)',
-                  fontWeight: 'var(--fw-section)',
-                  cursor: 'pointer',
-                  border: leadDay === day ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid rgba(255, 255, 255, 0.08)',
-                  background: leadDay === day ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.03)',
-                  color: leadDay === day ? '#FFFFFF' : 'var(--text-muted)',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                Day {day}
-              </button>
-            ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+          <VariableSelector value={variable} onChange={(v) => setVariable(v)} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              HORIZON
+            </div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {[1, 2, 3].map((day) => (
+                <button
+                  key={day}
+                  onClick={() => setLeadDay(day)}
+                  style={{
+                    padding: '6px 16px',
+                    borderRadius: '8px',
+                    fontSize: 'var(--font-body)',
+                    fontWeight: 'var(--fw-section)',
+                    cursor: 'pointer',
+                    border: leadDay === day ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: leadDay === day ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                    color: leadDay === day ? '#FFFFFF' : 'var(--text-muted)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  Day {day}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Color Legend */}
+        {/* Status / Color Legend */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'rgba(255, 255, 255, 0.025)', padding: '6px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#F8FAFC', letterSpacing: '0.03em' }}>
+            {mapBadgeLabel.toUpperCase()}
+          </span>
+          <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>|</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-small)', fontWeight: 'var(--fw-section)', color: '#94A3B8' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#64748B' }} />
             ECMWF
@@ -97,9 +115,11 @@ export function SpatialIntelligence() {
       </div>
 
       {loading ? (
-        <LoadingState message={`Rendering geospatial weight matrix for Day ${leadDay}...`} />
+        <LoadingState message={`Rendering geospatial weight matrix for Day ${leadDay} (${variable})...`} />
       ) : error ? (
         <ErrorState error={error} onRetry={retry} />
+      ) : isWind ? (
+        <WindUnavailableNotice message="Spatial model weights for wind are unavailable because multi-model NWP 10m wind fields are pending ingestion." />
       ) : !hasLocations ? (
         <div className="glass-card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
           No geospatial model weight data available for Day {leadDay}.
@@ -197,7 +217,7 @@ export function SpatialIntelligence() {
                 </div>
 
                 <div style={{ fontSize: 'var(--font-small)', color: 'var(--text-subtle)', lineHeight: 'var(--lh-relaxed)', fontStyle: 'italic', borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '0.85rem' }}>
-                  Adaptive contributions vary by location and lead time based on local model skill.
+                  {data?.scope_disclaimer || 'Adaptive contributions vary by location and lead time based on local model skill.'}
                 </div>
               </div>
             )}
@@ -205,7 +225,7 @@ export function SpatialIntelligence() {
 
           {/* Scope Subtext */}
           <div style={{ fontSize: 'var(--font-small)', color: 'var(--text-subtle)', textAlign: 'center', marginTop: '0.25rem' }}>
-            Six-city demonstration scope: 6 selected metro locations. Map visualization is for prototype demonstration.
+            Demonstration scope: 6 selected metro locations • Zero fabricated spatial values.
           </div>
         </>
       )}

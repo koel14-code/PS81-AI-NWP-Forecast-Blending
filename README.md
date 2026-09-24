@@ -1,7 +1,7 @@
 # SkyBlend AI: Hybrid AI–NWP Multi-Model Forecast Blending System
 *(SIH Problem Statement PS81)*
 
-> **Adaptive multi-model precipitation post-processing and forecast blending engine combining global Numerical Weather Prediction (NWP) models (ECMWF IFS, NOAA GFS, DWD ICON) using dynamic, context-aware machine learning error prediction.**
+> **Adaptive multi-model weather intelligence and forecast blending engine combining global Numerical Weather Prediction (NWP) models (ECMWF IFS, NOAA GFS, DWD ICON) using dynamic, context-aware machine learning error prediction for precipitation, temperature, and wind.**
 
 ---
 
@@ -9,9 +9,9 @@
 
 **SkyBlend AI** is a meteorological post-processing and multi-model forecast blending system developed for Smart India Hackathon (SIH) Problem Statement PS81. 
 
-Global Numerical Weather Prediction (NWP) models provide essential guidance for precipitation forecasting, yet individual models frequently exhibit localized biases, varying performance across geographic terrains, and lead-time-dependent skill decay. Rather than relying on a single deterministic model or applying static, unweighted ensemble averaging, SkyBlend AI deploys an **adaptive machine learning blending engine** that dynamically weights member forecasts based on local meteorological context, forecast lead horizon, and recent rolling model skill.
+Global Numerical Weather Prediction (NWP) models provide essential guidance for weather forecasting, yet individual models frequently exhibit localized biases, varying performance across geographic terrains, and lead-time-dependent skill decay. Rather than relying on a single deterministic model or applying static, unweighted ensemble averaging, SkyBlend AI deploys an **adaptive machine learning blending engine** that dynamically weights member forecasts based on local meteorological context, forecast lead horizon, and recent rolling model skill.
 
-The current implementation features the frozen **Phase 6 production/demo model**, trained across a full-year multi-location dataset (June 2023 to May 2024), deployed via a high-performance **FastAPI backend** performing real-time inference on the processed historical demonstration grid (live operational NWP ingestion is designated as future work), and presented through an interactive **React/Vite demonstration workstation**.
+The current implementation features the frozen **Phase 6 production rainfall model** (trained across a full-year multi-location dataset from June 2023 to May 2024), an implemented **2m continuous temperature blending extension** (evaluated against independent WMO 42807 ground-station observations), and a clean **variable-agnostic architectural abstraction** ready for 10m wind vector telemetry. The system is deployed via a high-performance **FastAPI backend** performing real-time inference on the processed demonstration grid (live operational NWP ingestion is designated as future work), and presented through an interactive **React/Vite demonstration workstation**.
 
 ---
 
@@ -192,24 +192,42 @@ Every model consumes exactly 12 context, forecast, and uncertainty features (`sr
 
 *Outcome: Across the active monsoon holdout, SkyBlend AI reduced MAE to 0.3543 mm/h and achieved the lowest False Alarm Ratio (0.3349).*
 
+### C. 2m Temperature Ground-Station Benchmark (3,957 Unique Station-Hours)
+*Pre-Monsoon Held-Out Split: April 7, 2024 to May 31, 2024 • Kolkata / Alipore WMO 42807 Ground Station*
+
+| Forecast Approach | MAE (°C) ↓ | RMSE (°C) ↓ | Bias (°C) | Pearson $r$ ↑ |
+| :--- | :---: | :---: | :---: | :---: |
+| **ECMWF IFS** | 1.1180 | 1.5792 | -0.3252 | 0.9264 |
+| **NOAA GFS** | 2.5064 | 3.0854 | +2.2694 | 0.8964 |
+| **DWD ICON** | 1.3812 | 1.8033 | +0.9732 | 0.9350 |
+| **Simple Average** | 1.3495 | 1.7277 | +0.9725 | 0.9409 |
+| **Historical Weighted** | 1.1658 | 1.5270 | +0.6844 | 0.9446 |
+| **SkyBlend Temperature** | **1.0144** | **1.3772** | **+0.4963** | **0.9496** |
+
+*Outcome: Continuous adaptive inverse-error weighting on 2m temperature cut MAE to 1.0144°C and achieved the highest correlation (0.9496) and lowest RMSE (1.3772°C) against independent physical station observations. Convective peak-lift is omitted for temperature to preserve thermodynamic consistency.*
+
+### D. 10m Wind Speed Telemetry Status
+*Status: Architecture Implemented • Telemetry Pending Ingestion*  
+The repository contains no multi-model NWP 10m surface wind forecasts ($u_{10}, v_{10}$). In accordance with SkyBlend AI scientific honesty standards, wind forecasts, trajectories, and verification metrics are strictly withheld (`status: "unavailable"`) rather than displaying fabricated or synthetic numbers. The pipeline is architecturally ready to ingest 10m wind fields upon dataset attachment.
+
 ---
 
 ## 9. Backend REST API
 
-The backend is built with **FastAPI** (`src/api/main.py`) utilizing an asynchronous `lifespan` handler that loads the frozen Phase 6 `AdaptiveMLBlender` and pre-indexes the demonstration NWP feature grid into application memory at startup. The inference engine performs real-time adaptive weighting and blending on each incoming request over the historical processed demonstration dataset (live operational NWP ingestion is designated as future work).
+The backend is built with **FastAPI** (`src/api/main.py`) utilizing an asynchronous `lifespan` handler that loads the frozen Phase 6 `AdaptiveMLBlender` and `TemperatureBlender`, pre-indexing demonstration feature grids into application memory at startup. The inference engine performs real-time adaptive weighting and blending on each incoming request over the demonstration dataset with full backwards compatibility (calls without `variable` default to `precipitation`).
 
 ### Endpoints Reference
 
 | Endpoint | Method | Parameters | Description |
 | :--- | :---: | :--- | :--- |
-| `/api/health` | `GET` | None | Reports system health, active stations, and demonstration run timestamp. |
-| `/api/overview` | `GET` | None | Delivers dashboard summary metrics, multi-model performance records, and station counts. |
-| `/api/forecast` | `GET` | `location: str`, `lead_day: int (1..3)` | **Core Phase 6 Inference Endpoint.** Generates 24 hourly blended forecasts, member inputs, and dynamic weights. |
-| `/api/weights` | `GET` | `location: str`, `lead_day: int (1..3)` | Delivers Phase 6 dynamic weights timeline and 24h mean model contributions. |
-| `/api/spatial-weights` | `GET` | `lead_day: int (1..3)` | Delivers geospatial weight matrix across all 6 demonstration metros. |
-| `/api/verification` | `GET` | None | Returns empirical verification matrix across all 6 benchmark approaches. |
-| `/api/extreme-signal` | `GET` | `location: str`, `lead_day: int (1..3)` | Computes analytical rainfall flag based on Phase 6 maximum blended precipitation ($F_{\max} \ge 1.0\text{ mm/h}$). |
-| `/api/methodology` | `GET` | None | Returns pipeline architecture stages and validation scope metadata. |
+| `/api/health` | `GET` | None | Reports system health, active stations, and multi-variable support status. |
+| `/api/overview` | `GET` | `variable: str` | Delivers dashboard summary metrics, multi-model performance records, and station counts. |
+| `/api/forecast` | `GET` | `location: str`, `lead_day: int (1..3)`, `variable: str` | **Core Inference Endpoint.** Generates 24 hourly blended forecasts, member inputs, weather-regime context, and dynamic weights. |
+| `/api/weights` | `GET` | `location: str`, `lead_day: int (1..3)`, `variable: str` | Delivers dynamic weights timeline and 24h mean model contributions for the selected variable. |
+| `/api/spatial-weights` | `GET` | `lead_day: int (1..3)`, `variable: str` | Delivers geospatial weight matrix across all 6 demonstration metros. |
+| `/api/verification` | `GET` | `variable: str` | Returns empirical verification matrix across all benchmark approaches for the selected variable. |
+| `/api/extreme-signal` | `GET` | `location: str`, `lead_day: int (1..3)`, `variable: str` | Variable-aware analytical hazard monitor (rainfall $\ge 1.0\text{ mm/h}$, temperature $\ge 38.0^\circ\text{C}$). |
+| `/api/methodology` | `GET` | `variable: str` | Returns 10-stage pipeline architecture, equations, and validation scope metadata. |
 
 ### API Performance
 - **Warm API Response Latency:** **`28.68 ms – 30.03 ms`** across all endpoints.
@@ -219,19 +237,32 @@ The backend is built with **FastAPI** (`src/api/main.py`) utilizing an asynchron
 
 ## 10. React Demonstration Workstation
 
-The frontend (`frontend/src/`) is built with **React 19** and **Vite v8.3.0**, styled with custom vanilla CSS design tokens, and structured into 7 dedicated workstation views:
+The frontend (`frontend/src/`) is built with **React 19** and **Vite v8.3.0**, styled with custom vanilla CSS design tokens in a sleek charcoal/graphite workstation aesthetic, and structured into 7 dedicated workstation views:
 
-1. **Overview (`Overview.jsx`):** Primary demonstration cockpit displaying peak rainfall intensity, dynamic contribution pills, 24h precipitation trajectory, and dynamic geospatial preview.
-2. **Forecast Intelligence (`ForecastIntelligence.jsx`):** Multi-model comparison workspace plotting ECMWF, GFS, ICON, and SkyBlend AI trajectories with Recharts interactive tooltips.
-3. **Adaptive AI (`AdaptiveWeights.jsx`):** Dynamic model contribution visualizer featuring circular percentage gauges and an interactive continuous Bezier stream graph.
-4. **Spatial Intelligence (`SpatialIntelligence.jsx`):** Leaflet dark-theme map showing demonstration stations with 3-color contribution donut markers and regional profiles.
-5. **Verification (`Verification.jsx`):** Empirical benchmarking matrix showing MAE, RMSE, Pearson $r$, POD, FAR, and CSI rankings.
-6. **Extreme Weather (`ExtremeWeather.jsx`):** Analytical threshold monitor tracking peak precipitation rates against the project advisory benchmark ($1.0\text{ mm/h}$).
-7. **Methodology (`Methodology.jsx`):** Interactive architecture explorer dynamically rendering pipeline stages fetched directly from `/api/methodology`.
+1. **Overview (`Overview.jsx`):** Primary demonstration cockpit displaying variable-aware peak intensity / maximum temperature, dynamic contribution pills, 24h trajectory, variable selector `[ Precipitation ] [ Temperature ] [ Wind ]`, and dynamic geospatial preview.
+2. **Forecast Intelligence (`ForecastIntelligence.jsx`):** Multi-model comparison workspace plotting ECMWF, GFS, ICON, and SkyBlend AI trajectories with Recharts interactive tooltips, variable selector, and weather-regime guidance.
+3. **Adaptive AI (`AdaptiveWeights.jsx`):** Dynamic model contribution visualizer featuring circular percentage gauges and an interactive continuous Bezier stream graph across variables.
+4. **Spatial Intelligence (`SpatialIntelligence.jsx`):** Leaflet dark-theme map showing demonstration stations with 3-color contribution donut markers and regional profiles (labeled "Precipitation production map" or temperature consensus).
+5. **Verification (`Verification.jsx`):** Empirical benchmarking matrix showing MAE, RMSE, Pearson $r$, POD, FAR, and CSI rankings across rainfall and independent ground-station temperature.
+6. **Extreme Weather (`ExtremeWeather.jsx`):** Variable-aware analytical threshold monitor tracking peak precipitation rates ($1.0\text{ mm/h}$) and thermal risk ($38.0^\circ\text{C}$) with explicit non-official warning disclaimers.
+7. **Methodology (`Methodology.jsx`):** 10-stage architecture explorer dynamically rendering pipeline stages, mathematical formulations, and production vs. research distinctions fetched directly from `/api/methodology`.
 
 ---
 
-## 11. Research Experiments & Isolation
+## 11. SIH Problem Statement Alignment
+
+| SIH Requirement | Current Implementation | Repository Evidence | Remaining Limitation |
+| :--- | :--- | :--- | :--- |
+| **Dynamically blended forecast** | Dynamic ML error prediction estimating model reliability at every forecast hour. Member forecasts (ECMWF, GFS, ICON) combined via normalized convex weighting. Convective peak-lift ($\alpha=0.35$) for rainfall; continuous consensus for temperature. | `src/blending/ml_blender.py`<br/>`src/blending/temperature_blender.py`<br/>`models/expanded_full_year/`<br/>`models/temperature/` | Wind forecast cleanly withheld (`status: "unavailable"`) pending NWP 10m wind vector dataset ingestion. |
+| **Model weight maps** | Geospatial blending matrix displaying dynamic mean contribution weights and dominant model across all six demonstration metropolitan areas across 1–3 lead days. | `data/processed/multilocation_rainfall_spatial_weights_day1_to_day3.csv`<br/>`src/api/main.py` (`get_spatial_weights`) | 6 demonstration metropolitan coordinates; not a continuous nationwide spatial raster. |
+| **Improved forecast skill** | Chronological out-of-sample held-out benchmark evaluation demonstrating quantitative error reduction against individual NWP members, simple arithmetic averaging, and historical weighted baselines. | `data/processed/evaluation_comparison_metrics.csv`<br/>`data/processed/temperature_test_performance.csv`<br/>`reports/independent_station_validation_kolkata.md` | Skill improvement varies by metric; ECMWF retains higher POD on July holdout (0.7808 vs 0.6301). Wind skill unverified. |
+| **Extreme weather guidance** | Variable-aware analytical hazard guidance. Calibrated precipitation advisory threshold ($\ge 1.0\text{ mm/h}$) and diurnal heat hazard threshold ($\ge 38.0^\circ\text{C}$). High-wind signal labeled "Not configured / insufficient evidence". Explicit UI notices. | `src/api/main.py` (`get_extreme_signal`)<br/>`src/blending/regimes.py` | Analytical indicators for decision support prototypes; NOT official IMD disaster warnings. |
+| **Operational workflow/dashboard** | Production-ready stack: Asynchronous FastAPI REST service (<30ms latency) serving real-time inference, coupled with React 18 / Vite workstation adhering to charcoal/graphite workstation visual language across 7 dedicated views. | `src/api/main.py`<br/>`frontend/src/`<br/>`frontend/dist/` | Operates on processed demonstration datasets re-anchored for display; live 00Z/12Z NWP ingestion pipeline is future work. |
+| **Optimized forecast for rainfall, temperature, wind and extreme indicators** | Rainfall: Fully optimized & production-validated (Phase 6).<br/>Temperature: Fully implemented extension (continuous adaptive ML blender, WMO 42807 evaluation).<br/>Wind: Cleanly architected; exposed as "unavailable / pending telemetry" in adherence to scientific honesty.<br/>Extreme indicators: Variable-aware signals implemented for rainfall and temperature. | `models/expanded_full_year/`<br/>`models/temperature/`<br/>`src/blending/ml_blender.py`<br/>`src/blending/temperature_blender.py`<br/>`data/processed/multilocation_temperature_forecast_inputs.csv` | Multi-model NWP 10m wind vector forecasts ($u_{10}, v_{10}$) are not present in repository, precluding complete optimization of wind until raw telemetry is ingested. |
+
+---
+
+## 12. Research Experiments & Isolation
 
 Beyond the frozen Phase 6 baseline, several experimental model explorations were conducted during project development. **These research branches are strictly isolated in `scratch/`, `reports/`, and `models/phase*` and are NOT loaded into the production serving path:**
 
@@ -255,67 +286,76 @@ To ensure absolute scientific transparency, the following constraints must be no
 
 ---
 
-## 13. Repository Structure
+## 14. Repository Structure
 
 ```text
 PS81-AI-NWP-Forecast-Blending/
 ├── README.md                                 # Official Project Documentation
 ├── requirements.txt                          # Python Production Dependencies
 ├── models/
-│   ├── expanded_full_year/                   # OFFICIAL PHASE 6 PRODUCTION ARTIFACTS
+│   ├── expanded_full_year/                   # FROZEN PHASE 6 PRODUCTION RAINFALL ARTIFACTS
 │   │   ├── adaptive_blender_ECMWF_IFS.joblib
 │   │   ├── adaptive_blender_NOAA_GFS.joblib
 │   │   └── adaptive_blender_DWD_ICON.joblib
+│   ├── temperature/                          # IMPLEMENTED 2M TEMPERATURE BLENDER ARTIFACTS
+│   │   ├── temperature_blender_ECMWF_IFS.joblib
+│   │   ├── temperature_blender_NOAA_GFS.joblib
+│   │   └── temperature_blender_DWD_ICON.joblib
 │   ├── phase10b_gate/                        # Isolated Research Artifacts (Offline)
 │   └── phase11_gate/                         # Isolated Research Artifacts (Offline)
 │
 ├── data/
-│   └── processed/                            # Aligned Datasets & Evaluation Matrices
-│       ├── multilocation_rainfall_training_dataset_2023_06_to_2024_05.csv
-│       ├── multilocation_rainfall_ml_features_2023_06_to_2024_05.csv
-│       ├── model_performance_test.csv
-│       └── model_weight_map_summary.csv
+│   ├── processed/                            # Aligned Datasets & Evaluation Matrices
+│   │   ├── multilocation_rainfall_training_dataset_2023_06_to_2024_05.csv
+│   │   ├── multilocation_rainfall_ml_features_2023_06_to_2024_05.csv
+│   │   ├── multilocation_temperature_forecast_inputs.csv
+│   │   ├── temperature_test_performance.csv
+│   │   └── evaluation_comparison_metrics.csv
+│   └── external/station_validation/          # Independent Ground-Station Data
+│       └── kolkata_alipore_42807_hourly.csv
 │
 ├── src/
 │   ├── api/
-│   │   └── main.py                           # FastAPI Runtime Serving Layer
+│   │   └── main.py                           # Variable-Agnostic FastAPI Runtime Layer
 │   ├── blending/
-│   │   ├── ml_blender.py                     # AdaptiveMLBlender Engine (Phase 6)
+│   │   ├── ml_blender.py                     # AdaptiveMLBlender Engine (Phase 6 Rainfall)
+│   │   ├── temperature_blender.py            # Continuous Temperature Blender (No Peak-Lift)
+│   │   ├── regimes.py                        # Operational Weather Regime Classifier
 │   │   └── baselines.py                      # Baseline Blenders & Data Splitters
 │   ├── features/
 │   │   └── rainfall_features.py              # Feature Engineering Pipeline
-│   ├── data/
-│   │   ├── alignment.py                      # Multi-Model Temporal Harmonization
-│   │   ├── fetch_forecasts.py                # Open-Meteo NWP Ingestion Pipeline
-│   │   └── fetch_reference.py                # ERA5 Reanalysis Pipeline
-│   └── evaluation/
-│       └── evaluation.py                     # Verification Metrics Suite
+│   └── data/
+│       ├── alignment.py                      # Multi-Model Temporal Harmonization
+│       ├── fetch_forecasts.py                # Open-Meteo NWP Ingestion Pipeline
+│       └── fetch_reference.py                # ERA5 Reanalysis Pipeline
 │
 ├── frontend/                                 # React 19 + Vite Workstation
 │   ├── package.json
 │   ├── vite.config.js
 │   └── src/
-│       ├── api/client.js                     # REST API Client
-│       ├── components/                       # Shared UI Components (Charts, Map)
+│       ├── api/client.js                     # Multi-Variable REST API Client
+│       ├── components/                       # Shared UI Components (Charts, Map, Selectors)
 │       └── pages/                            # 7 Dedicated Workstation Views
 │
 ├── reports/                                  # Verified Scientific & Audit Reports
-│   ├── phase6_production_freeze_audit.md
-│   ├── api_frontend_truth_audit.md
-│   └── final_end_to_end_verification.md
+│   ├── sih_alignment_final_audit.md          # Factual SIH PS81 Alignment Audit
+│   ├── temperature_station_validation_kolkata.md
+│   ├── independent_station_validation_kolkata.md
+│   └── phase6_production_freeze_audit.md
 │
 └── scripts/                                  # Reproducible Training & Evaluation Pipelines
     ├── build_multilocation_dataset.py
     ├── build_features.py
-    └── train_and_evaluate_expanded_model.py
+    ├── train_and_evaluate_expanded_model.py
+    └── train_and_evaluate_temperature.py
 ```
 
 ---
 
-## 14. Installation & Local Setup
+## 15. Installation & Local Setup
 
 ### Prerequisites
-- **Python:** 3.10 or 3.11 recommended.
+- **Python:** 3.10, 3.11, or 3.14.
 - **Node.js:** v18.0.0 or higher with `npm`.
 
 ### 1. Clone the Repository
@@ -349,7 +389,7 @@ cd ..
 
 ---
 
-## 15. Running the Application
+## 16. Running the Application
 
 ### Start the FastAPI Backend Service
 From the project root:
@@ -368,32 +408,36 @@ Open your browser at `http://localhost:5173`. The application automatically conn
 
 ---
 
-## 16. Reproducibility
+## 17. Reproducibility
 
 To re-run the full training and out-of-sample evaluation pipeline from processed feature data:
 
 ```bash
-# Execute Phase 6 model training and chronological evaluation
+# Execute Phase 6 rainfall model training and chronological evaluation
 python scripts/train_and_evaluate_expanded_model.py
+
+# Execute 2m temperature model training and ground-station evaluation
+python scripts/train_and_evaluate_temperature.py
 ```
 
 To run the automated API and frontend scientific consistency verification suite:
 ```bash
-# Execute end-to-end endpoint verification across all 18 matrix combinations
-python scratch/run_final_e2e_verification.py
+# Execute unit and multi-variable integration tests
+pytest tests/
 ```
 
 ---
 
-## 17. Future Work
+## 18. Future Work
 
 - **Live Meteorological Ingestion:** Establish scheduled ingest pipelines pulling real-time 00Z/12Z initialization GRIB2 streams directly from ECMWF Open Data, NOAA NOMADS, and DWD Open Data servers.
 - **Surface Observation Ingestion:** Transition from gridded ERA5 reanalysis to real-time telemetry from IMD automatic weather stations (AWS) and rain-gauge networks.
+- **10m Surface Wind Ingestion:** Ingest multi-model NWP 10m wind vector forecasts ($u_{10}, v_{10}$) to activate the unvalidated wind forecast pipeline.
 - **Selective Convective Gating:** Refine research regime gates (such as Phase 11) to safely activate upper-tail precipitation signals during severe convective storms without inflating false alarm rates during dry spells.
 - **Spatial Expansion:** Extend station calibration grids to cover complex Himalayan topography, peninsular river basins, and island territories.
 
 ---
 
-## 18. Attribution & Project Context
+## 19. Attribution & Project Context
 
 Developed for the **Smart India Hackathon (SIH)** under **Problem Statement PS81**: *AI/ML-based Multi-Model Numerical Weather Prediction Forecast Blending for Improved Regional Guidance*.
