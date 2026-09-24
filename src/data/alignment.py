@@ -70,6 +70,12 @@ def align_forecasts_and_reference(
                 quality_report.invalid_timestamp_count += 1
                 continue
 
+            # NOTE ON LEAD-TIME INDEXING (Open-Meteo Seamless Limitation):
+            # Open-Meteo's historical-forecast-api provides a continuous, seamless forecast series.
+            # Independent 00Z/06Z/12Z/18Z archived initialization runs with physical degradation
+            # over lead horizons are not separated in this API endpoint. The horizon loop below
+            # indexes valid times into Day 1 (1-24h), Day 2 (25-48h), and Day 3 (49-72h) lead
+            # windows for pipeline architectural validation and multi-day data format compatibility.
             for horizon_days in lead_time_horizons:
                 if dt_valid.hour == 0:
                     base_run_date = dt_valid.date() - timedelta(days=1 + horizon_days)

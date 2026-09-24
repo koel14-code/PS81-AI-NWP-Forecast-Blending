@@ -46,11 +46,20 @@ def fetch_nwp_forecasts(
 
     req = urllib.request.Request(url, headers={"User-Agent": "PS81-Forecast-Pipeline/1.0"})
     
-    try:
-        with urllib.request.urlopen(req, timeout=30) as response:
-            raw_json = json.loads(response.read().decode("utf-8"))
-    except Exception as err:
-        raise RuntimeError(f"Failed to fetch forecast data for {location.name} ({url}): {err}") from err
+    raw_json = None
+    last_err = None
+    for attempt in range(1, 4):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as response:
+                raw_json = json.loads(response.read().decode("utf-8"))
+                break
+        except Exception as err:
+            last_err = err
+            if attempt < 3:
+                import time
+                time.sleep(2 * attempt)
+            else:
+                raise RuntimeError(f"Failed to fetch forecast data for {location.name} after 3 attempts ({url}): {last_err}") from last_err
 
     hourly_data = raw_json.get("hourly", {})
     timestamps = hourly_data.get("time", [])

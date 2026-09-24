@@ -10,7 +10,7 @@ Transforms predicted model errors into normalized blending weights:
     F_blended = sum(weight_i * F_i)
 """
 
-from typing import Dict, Tuple, List, Any
+from typing import Dict, Tuple, List, Any, Optional
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -22,7 +22,7 @@ from src.data.schema import COL_MODEL, COL_ABSOLUTE_ERROR
 
 MODEL_NAMES = ["ECMWF_IFS", "NOAA_GFS", "DWD_ICON"]
 
-# Allowed Predictor Features (Explicit Location Context + Zero Target Leakage)
+# Allowed Predictor Features (Explicit Location Context + Forecast Uncertainty + Zero Target Leakage)
 FEATURE_COLS = [
     "lead_hours",
     "lead_day",
@@ -33,6 +33,9 @@ FEATURE_COLS = [
     "longitude",
     "precipitation",
     "rolling_historical_mae_24h",
+    "ensemble_mean",
+    "ensemble_std",
+    "ensemble_range",
 ]
 
 
@@ -40,11 +43,21 @@ class AdaptiveMLBlender:
     """
     Adaptive Machine Learning Blending Engine.
     Trains one error-prediction model per NWP source to predict expected absolute error.
+    Combines inverse-error reliability weighting with forecast-time peak preservation
+    to avoid diluting extreme convective rainfall events.
     """
 
-    def __init__(self, epsilon: float = 1e-4, random_state: int = 42):
+    def __init__(
+        self,
+        epsilon: float = 1e-4,
+        random_state: int = 42,
+        peak_lift_alpha: float = 0.35,
+        rain_threshold: float = 2.0,
+    ):
         self.epsilon = epsilon
         self.random_state = random_state
+        self.peak_lift_alpha = peak_lift_alpha
+        self.rain_threshold = rain_threshold
         self.models: Dict[str, HistGradientBoostingRegressor] = {}
         self.is_fitted = False
 
@@ -59,20 +72,34 @@ class AdaptiveMLBlender:
         
         return X, y
 
-    def fit(self, df_train_long: pd.DataFrame) -> "AdaptiveMLBlender":
+    def fit(
+        self,
+        df_train_long: pd.DataFrame,
+        df_val_long: Optional[pd.DataFrame] = None,
+    ) -> "AdaptiveMLBlender":
         """
         Trains error-prediction regressors for each NWP model on training set.
+        When df_val_long is provided, monitors validation loss on the explicit
+        chronological validation set for early stopping.
         """
         for model_name in MODEL_NAMES:
             X_train, y_train = self._prepare_model_dataset(df_train_long, model_name)
             
+            fit_kwargs = {}
+            if df_val_long is not None and not df_val_long.empty:
+                X_val, y_val = self._prepare_model_dataset(df_val_long, model_name)
+                fit_kwargs["X_val"] = X_val
+                fit_kwargs["y_val"] = y_val
+
             regressor = HistGradientBoostingRegressor(
                 max_iter=150,
                 learning_rate=0.05,
                 max_leaf_nodes=31,
+                early_stopping=True if "X_val" in fit_kwargs else "auto",
+                n_iter_no_change=10,
                 random_state=self.random_state,
             )
-            regressor.fit(X_train, y_train)
+            regressor.fit(X_train, y_train, **fit_kwargs)
             self.models[model_name] = regressor
 
         self.is_fitted = True
@@ -94,6 +121,18 @@ class AdaptiveMLBlender:
 
         pred_errors = {}
 
+        # Compute ensemble summary features on the fly if not already in df_wide
+        f_ecmwf = df_wide["ECMWF_IFS_precip"].values
+        f_gfs = df_wide["NOAA_GFS_precip"].values
+        f_icon = df_wide["DWD_ICON_precip"].values
+        f_models = np.column_stack([f_ecmwf, f_gfs, f_icon])
+
+        ens_mean = df_wide["ensemble_mean"].values if "ensemble_mean" in df_wide else np.mean(f_models, axis=1)
+        ens_std = df_wide["ensemble_std"].values if "ensemble_std" in df_wide else np.std(f_models, axis=1)
+        ens_max = df_wide["ensemble_max"].values if "ensemble_max" in df_wide else np.max(f_models, axis=1)
+        ens_min = df_wide["ensemble_min"].values if "ensemble_min" in df_wide else np.min(f_models, axis=1)
+        ens_range = df_wide["ensemble_range"].values if "ensemble_range" in df_wide else (ens_max - ens_min)
+
         for model_name in MODEL_NAMES:
             X_infer = pd.DataFrame({
                 "lead_hours": df_wide["lead_hours"],
@@ -105,6 +144,9 @@ class AdaptiveMLBlender:
                 "longitude": df_wide["longitude"],
                 "precipitation": df_wide[f"{model_name}_precip"],
                 "rolling_historical_mae_24h": df_wide[f"{model_name}_rolling_mae"],
+                "ensemble_mean": ens_mean,
+                "ensemble_std": ens_std,
+                "ensemble_range": ens_range,
             })[FEATURE_COLS]
 
             raw_pred_err = self.models[model_name].predict(X_infer)
@@ -122,11 +164,16 @@ class AdaptiveMLBlender:
         w_gfs = rel_gfs / sum_rel
         w_icon = rel_icon / sum_rel
 
-        f_ecmwf = df_wide["ECMWF_IFS_precip"].values
-        f_gfs = df_wide["NOAA_GFS_precip"].values
-        f_icon = df_wide["DWD_ICON_precip"].values
+        # Standard convex consensus blend
+        f_convex = (w_ecmwf * f_ecmwf) + (w_gfs * f_gfs) + (w_icon * f_icon)
 
-        blended = (w_ecmwf * f_ecmwf) + (w_gfs * f_gfs) + (w_icon * f_icon)
+        # Peak-preserving adjustment for moderate-to-heavy convective rain:
+        # Prevents convex consensus from diluting valid storm peaks when ensemble indicates rain.
+        if self.peak_lift_alpha > 0.0:
+            alpha = np.clip((ens_max - self.rain_threshold) / 5.0, 0.0, 1.0) * self.peak_lift_alpha
+            blended = (1.0 - alpha) * f_convex + alpha * ens_max
+        else:
+            blended = f_convex
 
         weights_df = pd.DataFrame({
             "w_ECMWF_IFS": w_ecmwf,

@@ -277,12 +277,80 @@ def main():
 
     loc_results_df = pd.DataFrame(loc_metrics_list)
 
-    # 10. Generate Evaluation Plots
+    # 10. Compute Rainfall Intensity Breakdown Metrics
+    def categorize_intensity(val):
+        if val < 0.1:
+            return "No Rain (<0.1 mm/h)"
+        elif val < 2.5:
+            return "Light (0.1-2.5 mm/h)"
+        elif val < 7.5:
+            return "Moderate (2.5-7.5 mm/h)"
+        else:
+            return "Heavy (>=7.5 mm/h)"
+
+    df_test_wide["intensity_bin"] = df_test_wide["reference_precipitation"].apply(categorize_intensity)
+    intensity_metrics_list = []
+    intensity_order = ["No Rain (<0.1 mm/h)", "Light (0.1-2.5 mm/h)", "Moderate (2.5-7.5 mm/h)", "Heavy (>=7.5 mm/h)"]
+    for ibin in intensity_order:
+        grp = df_test_wide[df_test_wide["intensity_bin"] == ibin]
+        if grp.empty:
+            continue
+        y_grp = grp["reference_precipitation"].values
+        app_grp = {
+            "ECMWF_IFS": grp["ECMWF_IFS_precip"].values,
+            "NOAA_GFS": grp["NOAA_GFS_precip"].values,
+            "DWD_ICON": grp["DWD_ICON_precip"].values,
+            "Simple_Average": compute_simple_ensemble(grp),
+            "Historical_Weighted": compute_historical_weighted_ensemble(grp)[0],
+            "Adaptive_ML_Blend": grp["adaptive_ml_blend"].values,
+        }
+        for app_name, f_vals in app_grp.items():
+            c_met = calculate_continuous_metrics(y_grp, f_vals)
+            intensity_metrics_list.append({
+                "Intensity_Bin": ibin,
+                "Approach": app_name,
+                "Sample_Count": len(y_grp),
+                "MAE": c_met["MAE"],
+                "RMSE": c_met["RMSE"],
+                "Bias": c_met["Bias"],
+            })
+    intensity_results_df = pd.DataFrame(intensity_metrics_list)
+
+    # 10b. Compute Heavy and Moderate Rainfall Event Counts & Frequency
+    total_test_samples = len(y_true)
+    obs_heavy_count = int((y_true >= 7.5).sum())
+    obs_mod_count = int(((y_true >= 2.5) & (y_true < 7.5)).sum())
+    
+    event_summary_rows = []
+    for app_name, f_vals in approaches.items():
+        pred_heavy_count = int((f_vals >= 7.5).sum())
+        pred_mod_count = int(((f_vals >= 2.5) & (f_vals < 7.5)).sum())
+        heavy_freq = pred_heavy_count / total_test_samples if total_test_samples > 0 else 0.0
+        
+        # Moderate rain bias
+        mod_mask = (y_true >= 2.5) & (y_true < 7.5)
+        mod_bias = float(np.mean(f_vals[mod_mask] - y_true[mod_mask])) if mod_mask.sum() > 0 else 0.0
+        
+        # Heavy rain bias
+        heavy_mask = y_true >= 7.5
+        heavy_bias = float(np.mean(f_vals[heavy_mask] - y_true[heavy_mask])) if heavy_mask.sum() > 0 else 0.0
+        
+        event_summary_rows.append({
+            "Approach": app_name,
+            "Observed_Heavy_Events": obs_heavy_count,
+            "Predicted_Heavy_Events": pred_heavy_count,
+            "Heavy_Event_Frequency": round(heavy_freq, 5),
+            "Moderate_Rain_Bias": round(mod_bias, 4),
+            "Heavy_Rain_Bias": round(heavy_bias, 4),
+        })
+    event_summary_df = pd.DataFrame(event_summary_rows)
+
+    # 11. Generate Evaluation Plots
     reports_dir = ROOT_DIR / "reports"
     generate_reports_and_plots(df_test_wide, ml_weights_df, results_df, lead_results_df, loc_results_df, reports_dir)
     print(f"Generated evaluation plots in: {reports_dir}")
 
-    # 11. Print Final Terminal Reports
+    # 12. Print Final Terminal Reports
     print("\n" + "=" * 80)
     print("OVERALL TEST EVALUATION METRICS (COMBINED MULTI-LOCATION TEST SET)")
     print("=" * 80)
@@ -293,6 +361,16 @@ def main():
     print("=" * 80)
     ml_loc_df = loc_results_df[loc_results_df["Approach"] == "Adaptive_ML_Blend"]
     print(ml_loc_df.to_string(index=False))
+
+    print("\n" + "=" * 80)
+    print("RAINFALL INTENSITY REGIME BREAKDOWN METRICS")
+    print("=" * 80)
+    print(intensity_results_df.to_string(index=False))
+
+    print("\n" + "=" * 80)
+    print("MODERATE & HEAVY RAINFALL EVENT SUMMARY (TEST SET)")
+    print("=" * 80)
+    print(event_summary_df.to_string(index=False))
 
     print("\n" + "=" * 80)
     print("AVERAGE ADAPTIVE MODEL WEIGHTS BY LOCATION")
@@ -312,11 +390,15 @@ def main():
     print(weight_map_df.head(10).to_string(index=False))
 
     print("\n" + "=" * 80)
-    print("SCIENTIFIC LIMITATION NOTICE")
+    print("SCIENTIFIC LIMITATIONS & DATA SOURCE DISCLOSURE")
     print("=" * 80)
-    print("  'This multi-location MVP demonstrates geographic variation in model reliability using six")
-    print("   selected locations. It does not establish nationwide forecast superiority. Broader validation")
-    print("   requires substantially more locations, seasons, and years.'")
+    print("  1. Geographic Scope: Demonstrates spatial weighting across 6 selected locations;")
+    print("     does not establish nationwide operational superiority.")
+    print("  2. Lead-Time Indexing: Current Open-Meteo source provides a seamless hourly series.")
+    print("     Day 1, Day 2, and Day 3 horizons index this continuous series for pipeline")
+    print("     compatibility; they do not represent independently archived 00Z/12Z NWP cycles.")
+    print("  3. Temporal Scope: Trained on July 2024 monsoon regime. Validation across winter")
+    print("     and pre-monsoon convective seasons will be required for year-round deployment.")
     print("=" * 80)
 
 

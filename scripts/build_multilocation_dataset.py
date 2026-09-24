@@ -38,20 +38,39 @@ from src.data.schema import (
 )
 
 
+import argparse
+
 def main():
+    parser = argparse.ArgumentParser(description="Build Multi-Location Training Dataset for SkyBlend AI.")
+    parser.add_argument("--start-date", type=str, default="2023-06-01", help="Start date (YYYY-MM-DD), UTC.")
+    parser.add_argument("--end-date", type=str, default="2024-05-31", help="End date (YYYY-MM-DD), UTC.")
+    parser.add_argument(
+        "--output-file",
+        type=str,
+        default="data/processed/multilocation_rainfall_training_dataset_2023_06_to_2024_05.csv",
+        help="Target output CSV file path.",
+    )
+    args = parser.parse_args()
+
     print("=" * 80)
     print("PS81 AI-NWP Forecast Blending System - Multi-Location Dataset Builder")
     print("=" * 80)
 
-    start_date = "2024-07-01"
-    end_date = "2024-07-28"
+    start_date = args.start_date
+    end_date = args.end_date
     lead_horizons = [0, 1, 2]
+
+    out_path = Path(args.output_file)
+    if not out_path.is_absolute():
+        out_path = ROOT_DIR / out_path
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     all_aligned_dfs = []
 
     print(f"Target Locations  : {len(DEMO_LOCATIONS)} ({', '.join(DEMO_LOCATIONS.keys())})")
-    print(f"Historical Period : {start_date} to {end_date} UTC (4 Weeks)")
+    print(f"Historical Period : {start_date} to {end_date} UTC")
     print(f"Lead-Time Groups  : Day 1 (1-24h), Day 2 (25-48h), Day 3 (49-72h)")
+    print(f"Target Output     : {out_path}")
     print("-" * 80)
 
     for loc_id, loc_cfg in DEMO_LOCATIONS.items():
@@ -73,13 +92,8 @@ def main():
 
     # Combine all multi-location dataframes
     combined_df = pd.concat(all_aligned_dfs, ignore_index=True)
-
-    output_dir = ROOT_DIR / "data" / "processed"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / "multilocation_rainfall_training_dataset.csv"
-
-    combined_df.to_csv(output_file, index=False)
-    print(f"\nSaved combined multi-location training dataset to: {output_file}")
+    combined_df.to_csv(out_path, index=False)
+    print(f"\nSaved combined multi-location training dataset to: {out_path}")
 
     # Print Comprehensive Pre-Training Validation Report
     print("\n" + "=" * 80)

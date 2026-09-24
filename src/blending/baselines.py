@@ -95,10 +95,14 @@ def pivot_aligned_dataset(df: pd.DataFrame) -> pd.DataFrame:
         inplace=True,
     )
 
+    extra_cols = [
+        c for c in ["ensemble_mean", "ensemble_std", "ensemble_max", "ensemble_min", "ensemble_range"]
+        if c in df.columns
+    ]
     meta_cols = [
         loc_col, COL_VALID_TIME, "latitude", "longitude", COL_LEAD_HOURS,
         COL_REF_PRECIPITATION, "month", "day_of_year", "hour", "season", "lead_day"
-    ]
+    ] + extra_cols
     df_meta = df[meta_cols].drop_duplicates(subset=[loc_col, COL_VALID_TIME, COL_LEAD_HOURS])
 
     df_wide = pd.merge(df_precip, df_rolling, on=pivot_cols, how="inner")
