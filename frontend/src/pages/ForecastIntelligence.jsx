@@ -32,10 +32,10 @@ export function ForecastIntelligence() {
     return row ? Number(row.MAE).toFixed(4) : null;
   };
 
-  const ecmwfMae = getMaeForModel('ECMWF_IFS') || '0.3711';
-  const gfsMae = getMaeForModel('NOAA_GFS') || '0.4748';
-  const iconMae = getMaeForModel('DWD_ICON') || '0.4895';
-  const blendMae = getMaeForModel('Adaptive_ML_Blend') || '0.3147';
+  const ecmwfMae = getMaeForModel('ECMWF_IFS') || '—';
+  const gfsMae = getMaeForModel('NOAA_GFS') || '—';
+  const iconMae = getMaeForModel('DWD_ICON') || '—';
+  const blendMae = getMaeForModel('Adaptive_ML_Blend') || '—';
 
   return (
     <motion.div

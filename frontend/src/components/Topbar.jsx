@@ -37,7 +37,7 @@ export function Topbar({ activeTab = 'overview', isBackendOnline = true }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-          LIVE FORECAST INTELLIGENCE
+          DEMONSTRATION FORECAST WORKSTATION
         </div>
         <StatusBadge online={isBackendOnline} />
         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em' }}>

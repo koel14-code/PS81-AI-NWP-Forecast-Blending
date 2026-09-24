@@ -8,24 +8,73 @@ Exposes REST API endpoints serving real data artifacts from data/processed/.
 from pathlib import Path
 from typing import Optional
 from datetime import datetime, timezone, timedelta
+from contextlib import asynccontextmanager
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.blending.ml_blender import AdaptiveMLBlender
+from src.blending.baselines import split_data_chronologically, pivot_aligned_dataset
+
 # Path Definitions
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / "data" / "processed"
 PERF_FILE = DATA_DIR / "model_performance_test.csv"
-WEIGHTS_FILE = DATA_DIR / "multilocation_adaptive_weights_test.csv"
-SINGLE_WEIGHTS_FILE = DATA_DIR / "adaptive_weights_test.csv"
 WEIGHT_MAP_FILE = DATA_DIR / "model_weight_map_summary.csv"
 FEATURES_FILE = DATA_DIR / "multilocation_rainfall_ml_features.csv"
+EXPANDED_FEATURES_FILE = DATA_DIR / "multilocation_rainfall_ml_features_2023_06_to_2024_05.csv"
+PHASE6_MODEL_DIR = BASE_DIR / "models" / "expanded_full_year"
+
+# Singletons for Phase 6 production serving
+_blender_instance: Optional[AdaptiveMLBlender] = None
+_nwp_inputs_df: Optional[pd.DataFrame] = None
+
+
+def get_phase6_blender() -> AdaptiveMLBlender:
+    """Returns singleton instance of frozen Phase 6 AdaptiveMLBlender."""
+    global _blender_instance
+    if _blender_instance is None:
+        if not PHASE6_MODEL_DIR.exists():
+            raise HTTPException(
+                status_code=500, detail=f"Phase 6 model directory not found at {PHASE6_MODEL_DIR}"
+            )
+        blender = AdaptiveMLBlender(peak_lift_alpha=0.35, rain_threshold=2.0)
+        blender.load(PHASE6_MODEL_DIR)
+        _blender_instance = blender
+    return _blender_instance
+
+
+def get_nwp_inputs() -> pd.DataFrame:
+    """Loads and formats representative test NWP inputs covering all 6 locations and 72 lead hours."""
+    global _nwp_inputs_df
+    if _nwp_inputs_df is None:
+        if not EXPANDED_FEATURES_FILE.exists():
+            raise HTTPException(
+                status_code=500, detail=f"Expanded features dataset not found at {EXPANDED_FEATURES_FILE}"
+            )
+        df_exp = pd.read_csv(EXPANDED_FEATURES_FILE)
+        _, _, df_test, _ = split_data_chronologically(df_exp)
+        # Target the full 72-hour operational horizon run from the test set (all 6 locations x 72 lead hours)
+        target_run = "2024-05-28T00:00:00Z"
+        df_run = df_test[df_test["forecast_run"] == target_run]
+        _nwp_inputs_df = pivot_aligned_dataset(df_run)
+    return _nwp_inputs_df
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Pre-load singleton Phase 6 blender and formatted NWP input grid at startup
+    app.state.blender = get_phase6_blender()
+    app.state.nwp_inputs_df = get_nwp_inputs()
+    yield
+
 
 app = FastAPI(
     title="SkyBlend AI Backend API",
     description="Operational REST API for Hybrid AI-NWP Multi-Model Forecast Blending System (PS81)",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Enable CORS for Vite frontend development
@@ -51,17 +100,6 @@ def get_forecast_reference_time() -> datetime:
     local_today = datetime.now().date()
     return datetime(local_today.year, local_today.month, local_today.day, 0, 0, 0, tzinfo=timezone.utc)
 
-
-def get_weights_df() -> pd.DataFrame:
-    w_file = WEIGHTS_FILE if WEIGHTS_FILE.exists() else SINGLE_WEIGHTS_FILE
-    if not w_file.exists():
-        raise HTTPException(
-            status_code=500, detail=f"Weights artifact not found at {w_file}"
-        )
-    df = pd.read_csv(w_file)
-    if "location_id" not in df.columns:
-        df["location_id"] = "kolkata"
-    return df
 
 
 def get_perf_df() -> pd.DataFrame:
@@ -130,88 +168,52 @@ def get_forecast(
     lead_day: int = Query(1, ge=1, le=3, description="Lead horizon day (1, 2, or 3)"),
 ):
     loc_clean = location.lower()
-    weights_df = get_weights_df()
+    blender = getattr(app.state, "blender", None) or get_phase6_blender()
+    nwp_df = getattr(app.state, "nwp_inputs_df", None)
+    if nwp_df is None:
+        nwp_df = get_nwp_inputs()
+
     ref_time = get_forecast_reference_time()
     target_dt = ref_time + timedelta(days=lead_day)
     target_date_str = target_dt.strftime("%Y-%m-%d")
 
-    df_w = weights_df[
-        (weights_df["location_id"] == loc_clean)
-        & (weights_df["lead_hours"] > 24 * (lead_day - 1))
-        & (weights_df["lead_hours"] <= 24 * lead_day)
-    ].copy()
+    df_slice = nwp_df[
+        (nwp_df["location_id"] == loc_clean)
+        & (nwp_df["lead_day"] == lead_day)
+    ].sort_values("lead_hours").reset_index(drop=True)
 
-    if df_w.empty:
+    if df_slice.empty:
         raise HTTPException(
             status_code=404, detail=f"Insufficient forecast data for {location} (Day {lead_day})"
         )
 
-    df_w_sub = df_w.head(24)
+    # Execute Phase 6 blender live inference
+    f_blended, weights_df, _ = blender.predict_weights(df_slice)
 
     series = []
-    if FEATURES_FILE.exists():
-        try:
-            feat_df = pd.read_csv(FEATURES_FILE)
-            from src.blending.baselines import split_data_chronologically, pivot_aligned_dataset
+    for i, row in df_slice.iterrows():
+        lh = 24 * (lead_day - 1) + (i + 1)
+        valid_dt = ref_time + timedelta(hours=lh)
+        valid_time_str = valid_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-            _, _, df_test_feat, _ = split_data_chronologically(feat_df)
-            df_test_wide = pivot_aligned_dataset(df_test_feat)
+        ec_val = float(row.get("ECMWF_IFS_precip", 0.0))
+        gfs_val = float(row.get("NOAA_GFS_precip", 0.0))
+        icon_val = float(row.get("DWD_ICON_precip", 0.0))
+        blend_val = float(f_blended[i])
+        ref_val = float(row.get("reference_precipitation", 0.0))
 
-            sub_wide = df_test_wide[
-                (df_test_wide["location_id"] == loc_clean)
-                & (df_test_wide["lead_hours"] > 24 * (lead_day - 1))
-                & (df_test_wide["lead_hours"] <= 24 * lead_day)
-            ].copy()
-
-            merged = pd.merge(
-                df_w_sub[["valid_time", "lead_hours", "blended_precipitation", "reference_precipitation"]],
-                sub_wide[["valid_time", "lead_hours", "ECMWF_IFS_precip", "NOAA_GFS_precip", "DWD_ICON_precip"]],
-                on=["valid_time", "lead_hours"],
-                how="inner",
-            )
-            if merged.empty:
-                merged = df_w_sub
-
-            for i, row in merged.reset_index(drop=True).iterrows():
-                lh = 24 * (lead_day - 1) + (i + 1)
-                valid_dt = ref_time + timedelta(hours=lh)
-                valid_time_str = valid_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-                ec_val = float(row["ECMWF_IFS_precip"]) if "ECMWF_IFS_precip" in row else float(row.get("blended_precipitation", 0))
-                gfs_val = float(row["NOAA_GFS_precip"]) if "NOAA_GFS_precip" in row else float(row.get("blended_precipitation", 0))
-                icon_val = float(row["DWD_ICON_precip"]) if "DWD_ICON_precip" in row else float(row.get("blended_precipitation", 0))
-
-                series.append({
-                    "lead_hours": lh,
-                    "valid_time": valid_time_str,
-                    "reference_precipitation": float(row["reference_precipitation"]),
-                    "ECMWF_IFS": ec_val,
-                    "NOAA_GFS": gfs_val,
-                    "DWD_ICON": icon_val,
-                    "blended_precipitation": float(row["blended_precipitation"]),
-                })
-        except Exception:
-            for i, row in df_w_sub.reset_index(drop=True).iterrows():
-                lh = 24 * (lead_day - 1) + (i + 1)
-                valid_dt = ref_time + timedelta(hours=lh)
-                valid_time_str = valid_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-                series.append({
-                    "lead_hours": lh,
-                    "valid_time": valid_time_str,
-                    "reference_precipitation": float(row["reference_precipitation"]),
-                    "blended_precipitation": float(row["blended_precipitation"]),
-                })
-    else:
-        for i, row in df_w_sub.reset_index(drop=True).iterrows():
-            lh = 24 * (lead_day - 1) + (i + 1)
-            valid_dt = ref_time + timedelta(hours=lh)
-            valid_time_str = valid_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-            series.append({
-                "lead_hours": lh,
-                "valid_time": valid_time_str,
-                "reference_precipitation": float(row["reference_precipitation"]),
-                "blended_precipitation": float(row["blended_precipitation"]),
-            })
+        series.append({
+            "lead_hours": lh,
+            "valid_time": valid_time_str,
+            "reference_precipitation": ref_val,
+            "ECMWF_IFS": ec_val,
+            "NOAA_GFS": gfs_val,
+            "DWD_ICON": icon_val,
+            "blended_precipitation": blend_val,
+            "ECMWF_IFS_weight": float(weights_df["w_ECMWF_IFS"].iloc[i]),
+            "NOAA_GFS_weight": float(weights_df["w_NOAA_GFS"].iloc[i]),
+            "DWD_ICON_weight": float(weights_df["w_DWD_ICON"].iloc[i]),
+        })
 
     return {
         "success": True,
@@ -221,7 +223,7 @@ def get_forecast(
             "forecast_run_time": ref_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "target_date": target_date_str,
             "series": series,
-            "insight": f"SkyBlend combines ECMWF IFS, NOAA GFS, and DWD ICON using adaptive model contributions for {loc_clean.capitalize()} over Day {lead_day} ({target_date_str}).",
+            "insight": f"SkyBlend combines ECMWF IFS, NOAA GFS, and DWD ICON using Phase 6 adaptive model contributions for {loc_clean.capitalize()} over Day {lead_day} ({target_date_str}).",
         },
     }
 
@@ -232,30 +234,33 @@ def get_weights(
     lead_day: int = Query(1, ge=1, le=3, description="Lead horizon day"),
 ):
     loc_clean = location.lower()
-    weights_df = get_weights_df()
+    blender = getattr(app.state, "blender", None) or get_phase6_blender()
+    nwp_df = getattr(app.state, "nwp_inputs_df", None)
+    if nwp_df is None:
+        nwp_df = get_nwp_inputs()
+
     ref_time = get_forecast_reference_time()
     target_dt = ref_time + timedelta(days=lead_day)
     target_date_str = target_dt.strftime("%Y-%m-%d")
 
-    df_w = weights_df[
-        (weights_df["location_id"] == loc_clean)
-        & (weights_df["lead_hours"] > 24 * (lead_day - 1))
-        & (weights_df["lead_hours"] <= 24 * lead_day)
-    ].copy()
+    df_slice = nwp_df[
+        (nwp_df["location_id"] == loc_clean)
+        & (nwp_df["lead_day"] == lead_day)
+    ].sort_values("lead_hours").reset_index(drop=True)
 
-    if df_w.empty:
+    if df_slice.empty:
         raise HTTPException(
             status_code=404, detail=f"Insufficient weight data for {location} (Day {lead_day})"
         )
 
-    df_w_sub = df_w.head(24)
+    _, weights_df, _ = blender.predict_weights(df_slice)
 
-    mean_ec = float(df_w_sub["ECMWF_IFS_weight"].mean())
-    mean_gfs = float(df_w_sub["NOAA_GFS_weight"].mean())
-    mean_icon = float(df_w_sub["DWD_ICON_weight"].mean())
+    mean_ec = float(weights_df["w_ECMWF_IFS"].mean())
+    mean_gfs = float(weights_df["w_NOAA_GFS"].mean())
+    mean_icon = float(weights_df["w_DWD_ICON"].mean())
 
     series = []
-    for idx, row in df_w_sub.reset_index(drop=True).iterrows():
+    for idx, row in df_slice.iterrows():
         lh = 24 * (lead_day - 1) + (idx + 1)
         valid_dt = ref_time + timedelta(hours=lh)
         valid_time_str = valid_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -264,9 +269,9 @@ def get_weights(
             "index": idx,
             "lead_hours": lh,
             "valid_time": valid_time_str,
-            "ECMWF_IFS_weight": float(row["ECMWF_IFS_weight"]),
-            "NOAA_GFS_weight": float(row["NOAA_GFS_weight"]),
-            "DWD_ICON_weight": float(row["DWD_ICON_weight"]),
+            "ECMWF_IFS_weight": float(weights_df["w_ECMWF_IFS"].iloc[idx]),
+            "NOAA_GFS_weight": float(weights_df["w_NOAA_GFS"].iloc[idx]),
+            "DWD_ICON_weight": float(weights_df["w_DWD_ICON"].iloc[idx]),
         })
 
     return {
@@ -282,7 +287,7 @@ def get_weights(
                 "DWD_ICON": mean_icon,
             },
             "series": series,
-            "note": "At every forecast point, model contributions are normalized to sum to 1. Dynamic weights represent each model's estimated contribution under observed context.",
+            "note": "At every forecast point, model contributions are normalized to sum to 1. Phase 6 dynamic weights represent each model's estimated contribution under observed context.",
         },
     }
 
@@ -349,26 +354,29 @@ def get_extreme_signal(
     lead_day: int = Query(1, ge=1, le=3, description="Lead horizon day"),
 ):
     loc_clean = location.lower()
-    weights_df = get_weights_df()
+    blender = getattr(app.state, "blender", None) or get_phase6_blender()
+    nwp_df = getattr(app.state, "nwp_inputs_df", None)
+    if nwp_df is None:
+        nwp_df = get_nwp_inputs()
+
     ref_time = get_forecast_reference_time()
     target_dt = ref_time + timedelta(days=lead_day)
     target_date_str = target_dt.strftime("%Y-%m-%d")
 
-    df_ex = weights_df[
-        (weights_df["location_id"] == loc_clean)
-        & (weights_df["lead_hours"] > 24 * (lead_day - 1))
-        & (weights_df["lead_hours"] <= 24 * lead_day)
-    ].copy()
+    df_slice = nwp_df[
+        (nwp_df["location_id"] == loc_clean)
+        & (nwp_df["lead_day"] == lead_day)
+    ].sort_values("lead_hours").reset_index(drop=True)
 
-    if df_ex.empty:
+    if df_slice.empty:
         raise HTTPException(
             status_code=404, detail=f"Insufficient data for extreme weather signal in {location} (Day {lead_day})"
         )
 
-    df_ex_sub = df_ex.head(24)
+    f_blended, _, _ = blender.predict_weights(df_slice)
 
     thresh = 1.0
-    max_blend = float(df_ex_sub["blended_precipitation"].max())
+    max_blend = float(np.max(f_blended))
     is_flagged = max_blend >= thresh
     status_text = (
         "HEAVY-RAINFALL ANALYTICAL SIGNAL"
@@ -377,15 +385,15 @@ def get_extreme_signal(
     )
 
     series = []
-    for idx, r in df_ex_sub.reset_index(drop=True).iterrows():
+    for idx, r in df_slice.iterrows():
         lh = 24 * (lead_day - 1) + (idx + 1)
         valid_dt = ref_time + timedelta(hours=lh)
         valid_time_str = valid_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         series.append({
             "lead_hours": lh,
             "valid_time": valid_time_str,
-            "blended_precipitation": float(r["blended_precipitation"]),
-            "reference_precipitation": float(r["reference_precipitation"]),
+            "blended_precipitation": float(f_blended[idx]),
+            "reference_precipitation": float(r.get("reference_precipitation", 0.0)),
             "threshold": thresh,
         })
 
@@ -430,6 +438,6 @@ def get_methodology():
                 "nwp_sources": 3,
                 "reference": "ERA5 Reanalysis",
             },
-            "limitations": "This is a proof-of-concept evaluation. Broader validation requires more locations, seasons, years and independent rain-gauge observations. ERA5 reanalysis is used as a consistent reference dataset, not direct ground-station truth.",
+            "limitations": "This is a proof-of-concept evaluation across 6 demonstration locations during July 2024. ERA5 reanalysis is used as a consistent gridded reference dataset. Current weather forecast data is ingested from Open-Meteo seamless historical forecast series; Day 1/2/3 lead horizons index this continuous series for pipeline compatibility rather than independently archived NWP initialization cycles.",
         },
     }

@@ -33,6 +33,7 @@ export function Overview({ onNavigate }) {
   const [forecastData, setForecastData] = useState(null);
   const [weightsData, setWeightsData] = useState(null);
   const [verifData, setVerifData] = useState(null);
+  const [spatialData, setSpatialData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -40,16 +41,18 @@ export function Overview({ onNavigate }) {
     try {
       setLoading(true);
       setError(null);
-      const [ov, fc, wt, verif] = await Promise.all([
+      const [ov, fc, wt, verif, sp] = await Promise.all([
         api.getOverview(),
         api.getForecast(location, leadDay),
         api.getWeights(location, leadDay),
         api.getVerification(),
+        api.getSpatialWeights(leadDay),
       ]);
       setOverviewData(ov);
       setForecastData(fc);
       setWeightsData(wt);
       setVerifData(verif);
+      setSpatialData(sp);
     } catch (err) {
       setError(err.message || 'Failed to load weather workstation data');
     } finally {
@@ -64,19 +67,21 @@ export function Overview({ onNavigate }) {
   const series = forecastData?.series || [];
   const rawMaxRain = series.length > 0
     ? Math.max(...series.map((s) => s.blended_precipitation || 0))
-    : 4.82;
-  const maxRainAnim = useAnimatedNumber(rawMaxRain, 2, 800);
+    : null;
+  const animatedMaxRain = useAnimatedNumber(rawMaxRain != null ? rawMaxRain : 0, 2, 800);
+  const maxRainDisplay = rawMaxRain != null ? animatedMaxRain : '—';
 
   const adaptiveMaeRaw = verifData?.table?.find(r => r.Approach === 'Adaptive_ML_Blend')?.MAE
-    || overviewData?.performance?.find(r => r.Approach === 'Adaptive_ML_Blend')?.MAE
-    || 0.3147;
-  const blendMaeAnim = useAnimatedNumber(adaptiveMaeRaw, 4, 800);
+    ?? overviewData?.performance?.find(r => r.Approach === 'Adaptive_ML_Blend')?.MAE
+    ?? null;
+  const blendMaeAnim = useAnimatedNumber(adaptiveMaeRaw != null ? adaptiveMaeRaw : 0, 4, 800);
+  const blendMaeDisplay = adaptiveMaeRaw != null ? blendMaeAnim : '—';
 
   if (loading) return <LoadingState message="Connecting to Weather Intelligence Workstation..." />;
   if (error) return <ErrorState error={error} onRetry={fetchData} />;
 
   const { performance } = overviewData;
-  const conditionLabel = getConditionLabel(rawMaxRain);
+  const conditionLabel = rawMaxRain != null ? getConditionLabel(rawMaxRain) : '—';
 
   const formattedTrajectory = series.map((item) => {
     let t = item.valid_time;
@@ -86,12 +91,37 @@ export function Overview({ onNavigate }) {
     return { ...item, timeLabel: t };
   });
 
-  const ecmwfPct = Math.round((weightsData?.means?.ECMWF_IFS || 0.387) * 100);
-  const gfsPct = Math.round((weightsData?.means?.NOAA_GFS || 0.219) * 100);
-  const iconPct = Math.round((weightsData?.means?.DWD_ICON || 0.394) * 100);
+  const ecmwfPct = weightsData?.means?.ECMWF_IFS != null ? Math.round(weightsData.means.ECMWF_IFS * 100) : null;
+  const gfsPct = weightsData?.means?.NOAA_GFS != null ? Math.round(weightsData.means.NOAA_GFS * 100) : null;
+  const iconPct = weightsData?.means?.DWD_ICON != null ? Math.round(weightsData.means.DWD_ICON * 100) : null;
 
-  const targetDate = forecastData?.target_date || `2026-09-${23 + leadDay}`;
-  const runTime = forecastData?.forecast_run_time ? forecastData.forecast_run_time.substring(0, 10) + ' 00:00 UTC' : '2026-09-23 00:00 UTC';
+  const targetDate = forecastData?.target_date || '—';
+  const runTime = forecastData?.forecast_run_time ? forecastData.forecast_run_time.substring(0, 10) + ' 00:00 UTC' : '—';
+
+  const getCityTopWeight = (loc) => {
+    if (!loc) return '—';
+    const dom = loc.dominant_model || 'ECMWF_IFS';
+    let modelName = 'ECMWF';
+    let weight = loc.mean_ECMWF_IFS_weight;
+    if (dom.includes('GFS')) {
+      modelName = 'GFS';
+      weight = loc.mean_NOAA_GFS_weight;
+    } else if (dom.includes('ICON')) {
+      modelName = 'ICON';
+      weight = loc.mean_DWD_ICON_weight;
+    }
+    return weight != null ? `${modelName} ${Math.round(weight * 100)}%` : '—';
+  };
+
+  const cityPreviews = spatialData?.locations && spatialData.locations.length > 0
+    ? spatialData.locations.map((loc) => ({
+        name: loc.name || loc.location_id,
+        top: getCityTopWeight(loc),
+      }))
+    : LOCATIONS.map((l) => ({
+        name: l.label,
+        top: '—',
+      }));
 
   const evalChartData = (performance || []).map((row) => ({
     name: row.Approach.replace(/_/g, ' '),
@@ -193,7 +223,7 @@ export function Overview({ onNavigate }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '2px' }}>
               <span style={{ fontSize: 'var(--font-hero)', fontWeight: 'var(--fw-hero)', color: '#F8FAFC', lineHeight: 'var(--lh-tight)', letterSpacing: '-0.03em' }}>
-                {maxRainAnim}
+                {maxRainDisplay}
               </span>
               <span style={{ fontSize: 'var(--font-section)', fontWeight: 'var(--fw-section)', color: 'var(--text-muted)' }}>mm/h</span>
               <span style={{ fontSize: 'var(--font-body)', fontWeight: 'var(--fw-section)', color: '#CBD5E1', textTransform: 'uppercase', marginLeft: '12px' }}>
@@ -205,9 +235,9 @@ export function Overview({ onNavigate }) {
           {/* Model Contribution Pills */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255, 255, 255, 0.03)', padding: '8px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
             <span style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', textTransform: 'uppercase' }}>CONTRIBUTIONS:</span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94A3B8' }}>ECMWF {ecmwfPct}%</span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#A855F7' }}>GFS {gfsPct}%</span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#10B981' }}>ICON {iconPct}%</span>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94A3B8' }}>ECMWF {ecmwfPct != null ? `${ecmwfPct}%` : '—'}</span>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#A855F7' }}>GFS {gfsPct != null ? `${gfsPct}%` : '—'}</span>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#10B981' }}>ICON {iconPct != null ? `${iconPct}%` : '—'}</span>
           </div>
         </div>
 
@@ -344,35 +374,35 @@ export function Overview({ onNavigate }) {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-small)', color: 'var(--text-main)', marginBottom: '4px' }}>
                 <span>ECMWF IFS Model Trust</span>
-                <strong style={{ color: '#94A3B8' }}>{ecmwfPct}%</strong>
+                <strong style={{ color: '#94A3B8' }}>{ecmwfPct != null ? `${ecmwfPct}%` : '—'}</strong>
               </div>
               <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${ecmwfPct}%`, background: '#64748B' }} />
+                <div style={{ height: '100%', width: `${ecmwfPct || 0}%`, background: '#64748B' }} />
               </div>
             </div>
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-small)', color: 'var(--text-main)', marginBottom: '4px' }}>
                 <span>NOAA GFS Model Trust</span>
-                <strong style={{ color: '#A855F7' }}>{gfsPct}%</strong>
+                <strong style={{ color: '#A855F7' }}>{gfsPct != null ? `${gfsPct}%` : '—'}</strong>
               </div>
               <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${gfsPct}%`, background: '#A855F7' }} />
+                <div style={{ height: '100%', width: `${gfsPct || 0}%`, background: '#A855F7' }} />
               </div>
             </div>
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-small)', color: 'var(--text-main)', marginBottom: '4px' }}>
                 <span>DWD ICON Model Trust</span>
-                <strong style={{ color: '#10B981' }}>{iconPct}%</strong>
+                <strong style={{ color: '#10B981' }}>{iconPct != null ? `${iconPct}%` : '—'}</strong>
               </div>
               <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${iconPct}%`, background: '#10B981' }} />
+                <div style={{ height: '100%', width: `${iconPct || 0}%`, background: '#10B981' }} />
               </div>
             </div>
 
             <div style={{ fontSize: 'var(--font-small)', color: 'var(--text-muted)', lineHeight: 'var(--lh-relaxed)', marginTop: '0.4rem', borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '0.65rem' }}>
-              <b>Supported Decision Factors:</b> Higher weight assigned to {ecmwfPct >= iconPct && ecmwfPct >= gfsPct ? 'ECMWF IFS' : iconPct >= gfsPct ? 'DWD ICON' : 'NOAA GFS'} based on historical skill profiles for {location.toUpperCase()} under Day {leadDay} lead horizon.
+              <b>Supported Decision Factors:</b> {ecmwfPct != null && gfsPct != null && iconPct != null ? `Higher weight assigned to ${ecmwfPct >= iconPct && ecmwfPct >= gfsPct ? 'ECMWF IFS' : iconPct >= gfsPct ? 'DWD ICON' : 'NOAA GFS'} based on historical skill profiles for ${location.toUpperCase()} under Day ${leadDay} lead horizon.` : 'Awaiting model contribution data...'}
             </div>
           </div>
         </div>
@@ -408,14 +438,7 @@ export function Overview({ onNavigate }) {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', margin: '0.75rem 0' }}>
-              {[
-                { name: 'Kolkata', top: 'ICON 39%' },
-                { name: 'Delhi', top: 'ECMWF 44%' },
-                { name: 'Mumbai', top: 'ECMWF 50%' },
-                { name: 'Chennai', top: 'ECMWF 54%' },
-                { name: 'Guwahati', top: 'ICON 40%' },
-                { name: 'Bengaluru', top: 'ECMWF 51%' }
-              ].map((c) => (
+              {cityPreviews.map((c) => (
                 <div key={c.name} style={{ background: 'rgba(255, 255, 255, 0.025)', padding: '7px 10px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#CBD5E1' }} />

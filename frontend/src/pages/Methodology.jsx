@@ -16,22 +16,34 @@ import {
   HelpCircle
 } from 'lucide-react';
 
-const STAGES_8 = [
-  { step: '01', title: 'NWP Forecast Sources', icon: Layers, desc: 'Ingests multi-model precipitation forecasts from ECMWF IFS, NOAA GFS, and DWD ICON.', color: '#94A3B8' },
-  { step: '02', title: 'Data Harmonization', icon: RefreshCw, desc: 'Aligns spatio-temporal coordinates, common 1-hour time steps, and forecast lead horizons.', color: '#CBD5E1' },
-  { step: '03', title: 'Historical Skill Analysis', icon: History, desc: 'Evaluates rolling historical forecast errors and skill profiles across lead times.', color: '#A855F7' },
-  { step: '04', title: 'Weather / Context Features', icon: CloudSun, desc: 'Incorporates seasonal, precipitation regime, location, and temporal context indicators.', color: '#8B5CF6' },
-  { step: '05', title: 'Adaptive Weight Engine', icon: Cpu, desc: 'Machine learning regressor predicts expected absolute error ê_m per model.', color: '#F59E0B' },
-  { step: '06', title: 'Forecast Blending', icon: GitMerge, desc: 'Dynamically computes normalized sum-to-1 reliability weights to produce consensus forecast.', color: '#F8FAFC' },
-  { step: '07', title: 'Held-out Verification', icon: BadgeCheck, desc: 'Validates blended predictions against ERA5 reanalysis reference on unseen evaluation period.', color: '#10B981' },
-  { step: '08', title: 'Extreme Weather Guidance', icon: AlertTriangle, desc: 'Generates analytical rainfall signals based on project analytical threshold monitoring.', color: '#EF4444' },
-];
+const STAGE_VISUALS = {
+  1: { icon: Layers, color: '#94A3B8' },
+  2: { icon: RefreshCw, color: '#CBD5E1' },
+  3: { icon: History, color: '#A855F7' },
+  4: { icon: CloudSun, color: '#8B5CF6' },
+  5: { icon: Cpu, color: '#F59E0B' },
+  6: { icon: GitMerge, color: '#F8FAFC' },
+  7: { icon: BadgeCheck, color: '#10B981' },
+  8: { icon: AlertTriangle, color: '#EF4444' },
+};
 
 export function Methodology() {
   const { data, loading, error, retry } = useApi(api.getMethodology);
 
   if (loading) return <LoadingState message="Loading system methodology..." />;
   if (error) return <ErrorState error={error} onRetry={retry} />;
+
+  const pipelineStages = (data?.pipeline_stages || []).map((stage) => {
+    const stepNum = typeof stage.step === 'number' ? stage.step : parseInt(stage.step, 10);
+    const visual = STAGE_VISUALS[stepNum] || { icon: Layers, color: '#94A3B8' };
+    return {
+      step: String(stage.step).padStart(2, '0'),
+      title: stage.title,
+      desc: stage.desc,
+      icon: visual.icon,
+      color: visual.color,
+    };
+  });
 
   return (
     <motion.div
@@ -47,14 +59,14 @@ export function Methodology() {
         subtitle="End-to-end adaptive machine learning forecast blending architecture."
       />
 
-      {/* 8-Stage Flowing Scientific Pipeline Grid */}
+      {/* Flowing Scientific Pipeline Grid from API */}
       <div className="glass-card" style={{ padding: '1.6rem' }}>
         <div style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1.25rem' }}>
-          8-STAGE SYSTEM PROCESSING PIPELINE
+          SYSTEM PROCESSING PIPELINE ({pipelineStages.length} STAGES)
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.15rem' }}>
-          {STAGES_8.map((stage) => {
+          {pipelineStages.map((stage) => {
             const Icon = stage.icon;
             return (
               <div
