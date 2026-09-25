@@ -45,7 +45,7 @@ export function ErrorState({ error, onRetry }) {
         Unable to connect to SkyBlend backend.
       </div>
       <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: '1rem' }}>
-        {error || 'Make sure the FastAPI backend server is running at http://localhost:8000.'}
+        {error || 'Make sure the FastAPI backend server is running at http://127.0.0.1:8000.'}
       </div>
       {onRetry && (
         <button onClick={onRetry} className="btn-retry">

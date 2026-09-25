@@ -17,25 +17,20 @@ async function fetchApi(endpoint) {
         },
       });
     } catch (netErr) {
-      // Automatic fallback for Windows IPv6/IPv4 localhost vs 127.0.0.1 mismatch
+      // Automatic fallback for Windows IPv6/IPv4: retry localhost:8000 -> 127.0.0.1:8000
       if (url.includes('localhost:8000')) {
         const altUrl = url.replace('localhost:8000', '127.0.0.1:8000');
         console.warn(`[SkyBlend API] ${url} failed. Retrying with ${altUrl}...`);
-        res = await fetch(altUrl, {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' },
-        });
-        url = altUrl;
-        BASE_URL = BASE_URL.replace('localhost:8000', '127.0.0.1:8000');
-      } else if (url.includes('127.0.0.1:8000')) {
-        const altUrl = url.replace('127.0.0.1:8000', 'localhost:8000');
-        console.warn(`[SkyBlend API] ${url} failed. Retrying with ${altUrl}...`);
-        res = await fetch(altUrl, {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' },
-        });
-        url = altUrl;
-        BASE_URL = BASE_URL.replace('127.0.0.1:8000', 'localhost:8000');
+        try {
+          res = await fetch(altUrl, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+          });
+          url = altUrl;
+          BASE_URL = BASE_URL.replace('localhost:8000', '127.0.0.1:8000');
+        } catch {
+          throw netErr;
+        }
       } else {
         throw netErr;
       }
@@ -78,4 +73,5 @@ export const api = {
     fetchApi(`/api/extreme-signal?location=${encodeURIComponent(location)}&lead_day=${leadDay}&variable=${encodeURIComponent(variable)}`),
   getMethodology: (variable = 'precipitation') =>
     fetchApi(`/api/methodology?variable=${encodeURIComponent(variable)}`),
+  getBaseUrl: () => BASE_URL,
 };
