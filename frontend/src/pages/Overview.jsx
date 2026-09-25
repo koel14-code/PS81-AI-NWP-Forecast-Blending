@@ -7,6 +7,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import { ArrowRight, ChevronDown, ChevronUp, HelpCircle, Clock, Calendar, Info } from 'lucide-react';
 import { VariableSelector } from '../components/VariableSelector';
 import { WindUnavailableNotice } from '../components/WindUnavailableNotice';
+import { AtmosphericHeroLayer } from '../components/AtmosphericHeroLayer';
 
 const LOCATIONS = [
   { id: 'kolkata', label: 'Kolkata' },
@@ -168,17 +169,61 @@ export function Overview({ onNavigate }) {
       transition={{ duration: 0.3, ease: 'easeOut' }}
       style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}
     >
-      {/* 1. HEADER AREA */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+      {/* 1. CINEMATIC LANDING-PAGE HERO */}
+      <div className="landing-hero-card">
+        {/* Integrated Atmospheric Convergence & Synoptic Weather Field Layer */}
+        <AtmosphericHeroLayer />
+
+        {/* Foreground Content: Left Column Headline & Feature Points */}
+        <div className="landing-hero-content">
+          <div className="landing-hero-left">
+            <div className="landing-hero-eyebrow">
+              <span className="hero-eyebrow-pulse" />
+              <span>MULTI-MODEL NWP BLENDING</span>
+            </div>
+
+            <h1 className="landing-hero-headline">
+              Smarter Forecasts.<br />
+              <span className="landing-hero-headline-accent">A Safer Tomorrow.</span>
+            </h1>
+
+            <p className="landing-hero-subtext">
+              Adaptive intelligence for multi-model weather forecasting.
+            </p>
+
+            <div className="landing-hero-features">
+              <div className="hero-feature-item">
+                <span className="hero-feature-dot" />
+                <span>Multi-model NWP blending</span>
+              </div>
+              <div className="hero-feature-item">
+                <span className="hero-feature-dot" />
+                <span>Adaptive ML weighting</span>
+              </div>
+              <div className="hero-feature-item">
+                <span className="hero-feature-dot" />
+                <span>6 Indian metropolitan areas</span>
+              </div>
+              <div className="hero-feature-item">
+                <span className="hero-feature-dot" />
+                <span>Precipitation • Temperature • Wind</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. DEMONSTRATION WORKSTATION HEADER */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginTop: '0.25rem' }}>
         <div>
           <div style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
             DEMONSTRATION FORECAST WORKSTATION
           </div>
-          <h1 style={{ fontSize: 'var(--font-page-title)', fontWeight: 'var(--fw-title)', color: 'var(--text-main)', margin: '2px 0 2px 0', letterSpacing: '-0.02em' }}>
-            SKYBLEND AI — WEATHER INTELLIGENCE
-          </h1>
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 'var(--fw-title)', color: 'var(--text-main)', margin: '2px 0 2px 0', letterSpacing: '-0.02em' }}>
+            OPERATIONAL MULTI-MODEL SYNTHESIS
+          </h2>
           <p style={{ fontSize: 'var(--font-body)', color: 'var(--text-muted)' }}>
-            Adaptive multi-model forecast blending for precipitation, temperature and wind.
+            Real-time parameter inspection, dynamic 24h trajectory forecasts, and adaptive model contribution weights.
           </p>
         </div>
 
@@ -207,9 +252,11 @@ export function Overview({ onNavigate }) {
         <span><strong>Demonstration Mode:</strong> Demonstration forecast generated from the SkyBlend inference pipeline; operational deployment would ingest live NWP forecast cycles.</span>
       </div>
 
-      {/* 2. MAIN FORECAST HERO SURFACE */}
-      <div className="hero-glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {/* Controls Bar: Variable + Location + Lead Time */}
+      {/* 3. MAIN FORECAST HERO SURFACE */}
+      <div className="hero-glass-panel" style={{ padding: '1.5rem', position: 'relative', overflow: 'hidden' }}>
+        {/* Foreground Content (kept at z-index: 1 to ensure full interactivity and crisp legibility) */}
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+          {/* Controls Bar: Variable + Location + Lead Time */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
             <VariableSelector value={variable} onChange={(v) => setVariable(v)} />
@@ -346,6 +393,7 @@ export function Overview({ onNavigate }) {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* 3. UNDERSTANDING SKYBLEND SECTION */}

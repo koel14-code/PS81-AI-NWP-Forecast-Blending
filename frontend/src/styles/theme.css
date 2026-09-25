@@ -306,12 +306,262 @@ body {
 }
 
 .hero-glass-panel {
-  background: linear-gradient(135deg, rgba(16, 23, 35, 0.95) 0%, rgba(11, 16, 25, 0.97) 100%);
+  position: relative;
+  background: linear-gradient(135deg, rgba(16, 23, 35, 0.94) 0%, rgba(11, 16, 25, 0.96) 100%);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+/* ==========================================================================
+   LANDING HERO SECTION (Top of Overview)
+   ========================================================================== */
+
+.landing-hero-card {
+  position: relative;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(14, 20, 32, 0.96) 0%, rgba(9, 13, 21, 0.98) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+}
+
+.landing-hero-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: 2.25rem 2.25rem;
+  pointer-events: auto;
+}
+
+.landing-hero-left {
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.landing-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94A3B8;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: fit-content;
+}
+
+.hero-eyebrow-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
+.landing-hero-headline {
+  font-size: 2.35rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: #F8FAFC;
+  margin: 0;
+}
+
+.landing-hero-headline-accent {
+  color: #CBD5E1;
+  background: linear-gradient(180deg, #FFFFFF 0%, #94A3B8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.landing-hero-subtext {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #94A3B8;
+  margin: 0;
+}
+
+.landing-hero-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem 1rem;
+  margin-top: 0.4rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hero-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #CBD5E1;
+}
+
+.hero-feature-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #F59E0B;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .landing-hero-card {
+    min-height: auto;
+  }
+  .landing-hero-left {
+    max-width: 100%;
+  }
+  .landing-hero-headline {
+    font-size: 1.85rem;
+  }
+  .landing-hero-features {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Atmospheric Convergence Hero Layer */
+.hero-atmospheric-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.hero-atmospheric-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Streamlines: Base thin companion streamlines */
+.hero-stream-base {
+  fill: none;
+  stroke: rgba(148, 163, 184, 0.26);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+/* Streamlines: Primary model and consensus spines */
+.hero-stream-primary {
+  fill: none;
+  stroke: rgba(203, 213, 225, 0.44);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.hero-secondary-stream {
+  opacity: 0.70;
+}
+
+/* Streamlines: Flowing pulse */
+.hero-stream-pulse {
+  fill: none;
+  stroke: rgba(248, 250, 252, 0.58);
+  stroke-width: 1.5;
+  stroke-dasharray: 18 180;
+  stroke-linecap: round;
+  animation: streamPulseFlow 7.5s linear infinite;
+}
+
+@keyframes streamPulseFlow {
+  from {
+    stroke-dashoffset: 392;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Confluence Gate (analytical crossbar) */
+.hero-confluence-gate {
+  opacity: 0.95;
+}
+
+/* Convergence point pulse */
+.hero-convergence-pulse {
+  animation: convergencePulse 3.8s ease-in-out infinite;
+  transform-origin: 735px 220px;
+}
+
+@keyframes convergencePulse {
+  0%, 100% {
+    r: 14.5;
+    opacity: 0.16;
+  }
+  50% {
+    r: 23;
+    opacity: 0.42;
+  }
+}
+
+/* Restrained vortex rotation in Bay of Bengal */
+.hero-vortex-group {
+  animation: vortexSpin 60s linear infinite;
+  transform-origin: 1060px 310px;
+}
+
+@keyframes vortexSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+/* Weather activity breathing (precipitation clusters) */
+.hero-weather-pulse {
+  animation: weatherBreathe 4s ease-in-out infinite alternate;
+}
+
+@keyframes weatherBreathe {
+  0% {
+    opacity: 0.72;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .hero-stream-pulse,
+  .hero-convergence-pulse,
+  .hero-vortex-group,
+  .hero-weather-pulse {
+    animation: none !important;
+  }
+  .hero-particle-group {
+    display: none !important;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .hero-secondary-stream,
+  .hero-secondary-label {
+    display: none;
+  }
 }
 
 /* Navigation Link Items */
