@@ -7,7 +7,7 @@ import { LoadingState, ErrorState } from '../components/LoadingState';
 import { ForecastChart } from '../components/ForecastChart';
 import { VariableSelector } from '../components/VariableSelector';
 import { WindUnavailableNotice } from '../components/WindUnavailableNotice';
-import { CloudSun, Info } from 'lucide-react';
+import { CloudSun, Info, Calendar } from 'lucide-react';
 
 const LOCATIONS = [
   { id: 'kolkata', label: 'Kolkata' },
@@ -78,6 +78,22 @@ export function ForecastIntelligence() {
         subtitle="Compare individual numerical weather prediction sources with the SkyBlend AI adaptive forecast across variables."
       />
 
+      {/* Demonstration Explanatory Note */}
+      <div style={{
+        background: 'rgba(255, 255, 255, 0.02)',
+        border: '1px solid rgba(255, 255, 255, 0.06)',
+        borderRadius: '10px',
+        padding: '8px 14px',
+        fontSize: 'var(--font-small)',
+        color: 'var(--text-muted)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        <Info size={14} color="#94A3B8" />
+        <span><strong>Demonstration Mode:</strong> Demonstration forecast generated from the SkyBlend inference pipeline; operational deployment would ingest live NWP forecast cycles.</span>
+      </div>
+
       {/* Control Bar: Variable + Location + Lead Day */}
       <div className="control-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', margin: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
@@ -122,13 +138,24 @@ export function ForecastIntelligence() {
           </div>
         </div>
 
-        {/* Legend Indicator */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'rgba(255, 255, 255, 0.025)', padding: '6px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-          <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600 }}>── {isTemp ? 'Station Ref' : 'ERA5 Ref'}</span>
-          <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>── ECMWF</span>
-          <span style={{ fontSize: '0.75rem', color: '#8B5CF6', fontWeight: 600 }}>── GFS</span>
-          <span style={{ fontSize: '0.75rem', color: '#34D399', fontWeight: 600 }}>── ICON</span>
-          <span style={{ fontSize: '0.75rem', color: '#F8FAFC', fontWeight: 800 }}>━━ SkyBlend AI</span>
+        {/* Right: Target Date + Explanation + Legend Indicator */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-small)', color: 'var(--text-muted)' }}>
+              <Calendar size={13} color="var(--text-muted)" />
+              <span>Target Date: <strong style={{ color: '#FFFFFF' }}>{data?.target_date || '—'}</strong></span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'rgba(255, 255, 255, 0.025)', padding: '6px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600 }}>── {isTemp ? 'Station Ref' : 'ERA5 Ref'}</span>
+              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>── ECMWF</span>
+              <span style={{ fontSize: '0.75rem', color: '#8B5CF6', fontWeight: 600 }}>── GFS</span>
+              <span style={{ fontSize: '0.75rem', color: '#34D399', fontWeight: 600 }}>── ICON</span>
+              <span style={{ fontSize: '0.75rem', color: '#F8FAFC', fontWeight: 800 }}>━━ SkyBlend AI</span>
+            </div>
+          </div>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textAlign: 'right', maxWidth: '380px', lineHeight: 1.25 }}>
+            Demo dates are re-anchored to the current calendar for interface demonstration. Model training and historical verification use June 2023–May 2024 data; displayed 2026 forecasts are pipeline demonstrations, not live operational NWP forecasts.
+          </div>
         </div>
       </div>
 

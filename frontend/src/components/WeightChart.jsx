@@ -30,7 +30,7 @@ function buildSmoothPath(topPoints, bottomPoints) {
   return path;
 }
 
-export function WeightChart({ series = [], title = "LIVE ADAPTIVE STREAM GRAPH" }) {
+export function WeightChart({ series = [], title = "ADAPTIVE WEIGHT STREAM GRAPH" }) {
   const [hoverIndex, setHoverIndex] = useState(null);
 
   if (!series || series.length === 0) {
@@ -99,7 +99,7 @@ export function WeightChart({ series = [], title = "LIVE ADAPTIVE STREAM GRAPH" 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
         <div>
           <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            LIVE DYNAMIC FLOW
+            DYNAMIC ADAPTIVE FLOW
           </div>
           <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-main)', marginTop: '2px' }}>
             {title}

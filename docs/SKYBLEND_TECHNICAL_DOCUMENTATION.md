@@ -971,7 +971,7 @@ representing archived data as a live meteorological feed.
 
 The current runtime does not retrieve live ECMWF, GFS or ICON forecasts.
 
-Future deployment would require a live ingestion and scheduling layer.
+Future deployment would require a live ingestion and scheduling layer. Historical evaluation period: June 2023–May 2024. The workstation may re-anchor demonstration timestamps to the current calendar (e.g. 2026) for interactive presentation. These re-anchored dates do not represent archived or live NWP forecast issuance dates.
 
 ### 26.2 ERA5 is not gauge truth
 

@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber';
 import { LoadingState, ErrorState } from '../components/LoadingState';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { ArrowRight, ChevronDown, ChevronUp, HelpCircle, Clock, Calendar } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronUp, HelpCircle, Clock, Calendar, Info } from 'lucide-react';
 import { VariableSelector } from '../components/VariableSelector';
 import { WindUnavailableNotice } from '../components/WindUnavailableNotice';
 
@@ -172,7 +172,7 @@ export function Overview({ onNavigate }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <div style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-            OPERATIONAL WORKSTATION
+            DEMONSTRATION FORECAST WORKSTATION
           </div>
           <h1 style={{ fontSize: 'var(--font-page-title)', fontWeight: 'var(--fw-title)', color: 'var(--text-main)', margin: '2px 0 2px 0', letterSpacing: '-0.02em' }}>
             SKYBLEND AI — WEATHER INTELLIGENCE
@@ -189,6 +189,22 @@ export function Overview({ onNavigate }) {
           </div>
           <span className="status-pill online">● ONLINE</span>
         </div>
+      </div>
+
+      {/* Demonstration Explanatory Note */}
+      <div style={{
+        background: 'rgba(255, 255, 255, 0.02)',
+        border: '1px solid rgba(255, 255, 255, 0.06)',
+        borderRadius: '10px',
+        padding: '8px 14px',
+        fontSize: 'var(--font-small)',
+        color: 'var(--text-muted)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        <Info size={14} color="#94A3B8" />
+        <span><strong>Demonstration Mode:</strong> Demonstration forecast generated from the SkyBlend inference pipeline; operational deployment would ingest live NWP forecast cycles.</span>
       </div>
 
       {/* 2. MAIN FORECAST HERO SURFACE */}
@@ -241,9 +257,14 @@ export function Overview({ onNavigate }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-small)', color: 'var(--text-muted)' }}>
-            <Calendar size={14} color="var(--text-muted)" />
-            <span>Target Date: <strong style={{ color: '#FFFFFF' }}>{targetDate}</strong></span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-small)', color: 'var(--text-muted)' }}>
+              <Calendar size={14} color="var(--text-muted)" />
+              <span>Target Date: <strong style={{ color: '#FFFFFF' }}>{targetDate}</strong></span>
+            </div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textAlign: 'right', maxWidth: '380px', lineHeight: 1.25 }}>
+              Demo dates are re-anchored to the current calendar for interface demonstration. Model training and historical verification use June 2023–May 2024 data; displayed 2026 forecasts are pipeline demonstrations, not live operational NWP forecasts.
+            </div>
           </div>
         </div>
 

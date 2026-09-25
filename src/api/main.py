@@ -356,6 +356,7 @@ def get_forecast(
                 "target_date": target_date_str,
                 "series": series,
                 "forecast_context": overall_context,
+                "evaluation_scope": "Demonstration forecast generated from the SkyBlend inference pipeline; operational deployment would ingest live NWP forecast cycles.",
                 "insight": f"Historical-error weighted 10m scalar wind speed combining ECMWF IFS, NOAA GFS, and DWD ICON for {loc_clean.capitalize()} over Day {lead_day} ({target_date_str}).",
             },
         }
@@ -419,6 +420,7 @@ def get_forecast(
                 "target_date": target_date_str,
                 "series": series,
                 "forecast_context": overall_context,
+                "evaluation_scope": "Demonstration forecast generated from the SkyBlend inference pipeline; operational deployment would ingest live NWP forecast cycles.",
                 "insight": f"Continuous thermal consensus combining ECMWF IFS, NOAA GFS, and DWD ICON without peak-lift for {loc_clean.capitalize()} over Day {lead_day} ({target_date_str}).",
             },
         }
@@ -439,7 +441,7 @@ def get_forecast(
             status_code=404, detail=f"Insufficient forecast data for {location} (Day {lead_day})"
         )
 
-    # Execute Phase 6 blender live inference
+    # Execute Phase 6 blender inference
     f_blended, weights_df, _ = blender.predict_weights(df_slice)
 
     series = []
@@ -487,6 +489,7 @@ def get_forecast(
             "target_date": target_date_str,
             "series": series,
             "forecast_context": overall_context,
+            "evaluation_scope": "Demonstration forecast generated from the SkyBlend inference pipeline; operational deployment would ingest live NWP forecast cycles.",
             "insight": f"SkyBlend combines ECMWF IFS, NOAA GFS, and DWD ICON using Phase 6 adaptive model contributions for {loc_clean.capitalize()} over Day {lead_day} ({target_date_str}).",
         },
     }

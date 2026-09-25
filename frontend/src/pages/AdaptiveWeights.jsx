@@ -168,7 +168,7 @@ export function AdaptiveWeights() {
         <>
           {/* Main Flowing Stream & Engine Process Composition */}
           <div className="split-panel-grid adaptive-grid">
-            {/* Live Flowing Stream Visualization */}
+            {/* Flowing Stream Visualization */}
             <motion.div layout transition={{ duration: 0.4 }}>
               <WeightChart
                 series={data?.series || []}
