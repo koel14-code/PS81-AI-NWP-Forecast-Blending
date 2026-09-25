@@ -1,0 +1,36 @@
+# =====================================================================
+# SkyBlend AI — Combined Single-Container Production Image for Render
+# Runs both FastAPI (127.0.0.1:8000) and Nginx (${PORT}) in one container.
+# Platform: linux/amd64
+# =====================================================================
+
+# Stage 1: Extract pre-compiled React/Vite dashboard bundle
+FROM koel14/skyblend-frontend:latest AS frontend-assets
+
+# Stage 2: Combined Production Runtime
+FROM koel14/skyblend-backend:latest
+
+# Install Nginx, envsubst (gettext-base), and curl
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends nginx gettext-base curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy pre-compiled static dashboard assets
+COPY --from=frontend-assets /usr/share/nginx/html /usr/share/nginx/html
+
+# Copy latest source code, models, and data
+COPY src ./src
+COPY models ./models
+COPY data ./data
+
+# Copy Render Nginx configuration template and entrypoint supervisor
+COPY docker/render/nginx.conf.template /etc/nginx/render.conf.template
+COPY docker/render/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Default Render PORT
+ENV PORT=10000
+
+EXPOSE 10000
+
+CMD ["/app/entrypoint.sh"]
