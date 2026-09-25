@@ -2,6 +2,8 @@
 *(SIH Problem Statement PS81)*
 
 > **Adaptive multi-model weather intelligence and forecast blending engine combining global Numerical Weather Prediction (NWP) models (ECMWF IFS, NOAA GFS, DWD ICON) using dynamic, context-aware machine learning error prediction for precipitation, temperature, and wind.**
+>
+> 📊 **System Audit & Verification:** Read [ANALYSIS_REPORT.md](ANALYSIS_REPORT.md) for the comprehensive empirical capability report, test suite audit, and SIH PS81 compliance breakdown.
 
 ---
 
@@ -135,7 +137,7 @@ To enforce strict temporal leakage prevention, data is split chronologically wit
 
 ## 7. Production Model Specification
 
-The official Phase 6 production models reside in [`models/expanded_full_year/`](file:///C:/Users/Koel/Documents/GitHub/PS81-AI-NWP-Forecast-Blending/models/expanded_full_year/):
+The official Phase 6 production models reside in [`models/expanded_full_year/`](models/expanded_full_year/):
 
 | Artifact Filename | Model Architecture | Target Predicted | Iterations |
 | :--- | :--- | :--- | :---: |
@@ -302,7 +304,11 @@ To ensure absolute scientific transparency, the following constraints must be no
 ```text
 PS81-AI-NWP-Forecast-Blending/
 ├── README.md                                 # Official Project Documentation
-├── requirements.txt                          # Python Production Dependencies
+├── ANALYSIS_REPORT.md                        # Deep System & Test Suite Audit Report
+├── nwp                                       # One-Command Startup Script (macOS / Linux)
+├── nwp.bat                                   # One-Command Startup Script (Windows Command Prompt)
+├── requirements.runtime.txt                  # Fast Runtime Serving Dependencies
+├── requirements.txt                          # Full Production & Training Dependencies
 ├── models/
 │   ├── expanded_full_year/                   # FROZEN PHASE 6 PRODUCTION RAINFALL ARTIFACTS
 │   │   ├── adaptive_blender_ECMWF_IFS.joblib
@@ -366,7 +372,41 @@ PS81-AI-NWP-Forecast-Blending/
 
 ---
 
-## 15. Installation & Local Setup
+## 15. Quick Start (One-Command Launch)
+
+SkyBlend AI includes zero-configuration one-command startup scripts that automatically:
+- Verify Python 3.10+ and Node.js 18+ availability.
+- Initialize/reuse a local virtual environment (`.venv`).
+- Automatically install missing runtime dependencies (`requirements.runtime.txt`) and frontend packages (`npm install`).
+- Validate model artifacts and fallback to synthetic demo data if pre-computed tensors are absent.
+- Launch the **FastAPI backend** (`:8000`) and **React/Vite frontend** (`:5173`) in parallel.
+- Gracefully shut down both services with `Ctrl+C`.
+
+### macOS / Linux
+Run the executable bash script from the repository root:
+```bash
+./nwp
+```
+
+### Windows (Command Prompt / Windows Terminal)
+Run the native batch script directly in **Command Prompt (`cmd.exe`)** or **Windows Terminal**:
+```bat
+.\nwp.bat
+```
+*(Or simply `nwp` in Command Prompt)*
+
+> **Note on Windows Batch vs. PowerShell:**  
+> `nwp.bat` is a native Windows Batch file for the standard Windows Command Prompt / Terminal, **not a PowerShell script** (`.ps1`). It does not require setting PowerShell execution policies (`Set-ExecutionPolicy`) and works out of the box in `cmd.exe`, Windows Terminal, or by double-clicking in File Explorer.
+
+Once launched, open your browser:
+- **Frontend Dashboard:** [http://localhost:5173](http://localhost:5173)
+- **Backend API Docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+---
+
+## 16. Manual Installation & Local Setup
+
+If you prefer to configure and run each component manually:
 
 ### Prerequisites
 - **Python:** 3.10, 3.11, or 3.14.
@@ -378,18 +418,20 @@ git clone https://github.com/koel14-code/PS81-AI-NWP-Forecast-Blending.git
 cd PS81-AI-NWP-Forecast-Blending
 ```
 
-### 2. Set Up Python Environment
+### 2. Set Up Python Virtual Environment
 ```bash
 # Create virtual environment
 python -m venv venv
 
 # Activate virtual environment
+# Windows (cmd.exe):
+.\venv\Scripts\activate.bat
 # Windows (PowerShell):
 .\venv\Scripts\Activate.ps1
 # Linux/macOS:
 source venv/bin/activate
 
-# Install dependencies
+# Install dependencies (use requirements.runtime.txt for serving only)
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
@@ -403,7 +445,7 @@ cd ..
 
 ---
 
-## 16. Running the Application
+## 17. Running Services Manually
 
 ### Start the FastAPI Backend Service
 From the project root:
@@ -422,7 +464,7 @@ Open your browser at `http://localhost:5173`. The application automatically conn
 
 ---
 
-## 17. Reproducibility
+## 18. Reproducibility
 
 To re-run the full training and out-of-sample evaluation pipeline from processed feature data:
 
@@ -442,7 +484,7 @@ pytest tests/
 
 ---
 
-## 18. Future Work
+## 19. Future Work
 
 - **Live Meteorological Ingestion:** Establish scheduled ingest pipelines pulling real-time 00Z/12Z initialization GRIB2 streams directly from ECMWF Open Data, NOAA NOMADS, and DWD Open Data servers.
 - **Surface Observation Ingestion:** Transition from gridded ERA5 reanalysis to real-time telemetry from IMD automatic weather stations (AWS) and rain-gauge networks.
@@ -452,6 +494,6 @@ pytest tests/
 
 ---
 
-## 19. Attribution & Project Context
+## 20. Attribution & Project Context
 
 Developed for the **Smart India Hackathon (SIH)** under **Problem Statement PS81**: *AI/ML-based Multi-Model Numerical Weather Prediction Forecast Blending for Improved Regional Guidance*.
