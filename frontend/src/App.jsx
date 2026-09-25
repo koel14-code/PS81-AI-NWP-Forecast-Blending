@@ -24,7 +24,7 @@ export default function App() {
           setIsBackendOnline(res && res.status === 'online');
         }
       } catch (err) {
-        console.error('[SkyBlend Health Check Error] Target URL: http://localhost:8000/api/health ->', err.message);
+        console.error(`[SkyBlend Health Check Error] Target URL: ${api.getBaseUrl()}/api/health ->`, err.message);
         if (isMounted) {
           setIsBackendOnline(false);
         }
