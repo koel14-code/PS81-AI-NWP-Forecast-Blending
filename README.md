@@ -390,17 +390,21 @@ Run the executable bash script from the repository root:
 ./nwp --rebuild-all    # Force re-fetch authentic data & re-train all models
 ```
 
-### Windows (Command Prompt / Windows Terminal)
-Run the native batch script directly in **Command Prompt (`cmd.exe`)** or **Windows Terminal**:
+### Windows (PowerShell or Command Prompt)
+If you are in **PowerShell**:
+```powershell
+.\nwp.ps1              # Normal startup (auto-ingests & trains if missing)
+.\nwp.ps1 -Train       # Force re-train all models
+.\nwp.ps1 -RebuildAll  # Force re-fetch authentic data & re-train all models
+```
+
+If you are in **Command Prompt (`cmd.exe`)**:
 ```bat
 .\nwp.bat              REM Normal startup (auto-ingests & trains if missing)
 .\nwp.bat --train      REM Force re-train all models
 .\nwp.bat --rebuild-allREM Force re-fetch authentic data & re-train all models
 ```
 *(Or simply `nwp` in Command Prompt)*
-
-> **Note on Windows Batch vs. PowerShell:**  
-> `nwp.bat` is a native Windows Batch file for the standard Windows Command Prompt / Terminal, **not a PowerShell script** (`.ps1`). It does not require setting PowerShell execution policies (`Set-ExecutionPolicy`) and works out of the box in `cmd.exe`, Windows Terminal, or by double-clicking in File Explorer.
 
 Once launched, open your browser:
 - **Frontend Dashboard:** [http://localhost:5173](http://localhost:5173)

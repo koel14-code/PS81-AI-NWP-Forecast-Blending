@@ -49,26 +49,67 @@ exit /b 1
 echo [OK] Found Python %PY_VER% (%PYTHON_CMD%)
 
 REM ======================================================================
-REM  2. CHECK NODE.JS
+REM  2. CHECK NODE.JS & NPM
 REM ======================================================================
 echo.
 echo -- Checking Node.js --
 
+REM Check if node is in PATH, or try standard install locations
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Node.js is required but not found.
-    echo         Install from https://nodejs.org/ (v18+ recommended)
-    exit /b 1
+    if exist "C:\Program Files\nodejs\node.exe" (
+        set "PATH=C:\Program Files\nodejs;%PATH%"
+    ) else if exist "C:\Program Files (x86)\nodejs\node.exe" (
+        set "PATH=C:\Program Files (x86)\nodejs;%PATH%"
+    ) else if exist "%LOCALAPPDATA%\Programs\node\node.exe" (
+        set "PATH=%LOCALAPPDATA%\Programs\node;%PATH%"
+    )
 )
-for /f "tokens=*" %%v in ('node --version') do set "NODE_VER=%%v"
+
+where node >nul 2>&1
+if %errorlevel% neq 0 goto :node_missing
+goto :node_found
+
+:node_missing
+echo.
+echo ======================================================================
+echo [ERROR] Node.js is required to run the React frontend, but was not found.
+echo.
+echo To install Node.js:
+echo   Option A: Download the LTS installer from https://nodejs.org/
+echo   Option B: Run in PowerShell: winget install OpenJS.NodeJS.LTS
+echo.
+echo After installing, restart your terminal/VS Code and re-run .\nwp.bat
+echo ======================================================================
+echo.
+exit /b 1
+
+:node_found
+for /f "tokens=*" %%v in ('node --version 2^>nul') do set "NODE_VER=%%v"
 echo [OK] Found Node.js %NODE_VER%
 
 where npm >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] npm is required but not found. It should come with Node.js.
-    exit /b 1
+    if exist "C:\Program Files\nodejs\npm.cmd" (
+        set "PATH=C:\Program Files\nodejs;%PATH%"
+    )
 )
-for /f "tokens=*" %%v in ('npm --version') do set "NPM_VER=%%v"
+
+where npm >nul 2>&1
+if %errorlevel% neq 0 goto :npm_missing
+goto :npm_found
+
+:npm_missing
+echo.
+echo ======================================================================
+echo [ERROR] npm was not found. It usually comes bundled with Node.js.
+echo Please reinstall Node.js LTS from https://nodejs.org/
+echo ======================================================================
+echo.
+exit /b 1
+
+:npm_found
+for /f "tokens=*" %%v in ('npm --version 2^>nul') do set "NPM_VER=%%v"
 echo [OK] Found npm %NPM_VER%
 
 REM ======================================================================
