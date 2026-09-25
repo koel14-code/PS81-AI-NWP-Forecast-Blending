@@ -147,6 +147,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://192.168.1.3:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
@@ -155,7 +156,6 @@ app.add_middleware(
     allow_headers=["*"],
     allow_private_network=True,
 )
-
 
 def get_forecast_reference_time() -> datetime:
     """Returns the backend operational forecast run reference timestamp."""
