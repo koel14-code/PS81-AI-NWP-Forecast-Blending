@@ -44,6 +44,8 @@ export function SpatialIntelligence() {
 
   const mapBadgeLabel = isTemp
     ? 'Temperature Consensus Map'
+    : isWind
+    ? 'Wind Consensus Map (10m)'
     : 'Precipitation production map';
 
   return (
@@ -118,7 +120,7 @@ export function SpatialIntelligence() {
         <LoadingState message={`Rendering geospatial weight matrix for Day ${leadDay} (${variable})...`} />
       ) : error ? (
         <ErrorState error={error} onRetry={retry} />
-      ) : isWind ? (
+      ) : isWind && data?.status === 'unavailable' ? (
         <WindUnavailableNotice message="Spatial model weights for wind are unavailable because multi-model NWP 10m wind fields are pending ingestion." />
       ) : !hasLocations ? (
         <div className="glass-card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>

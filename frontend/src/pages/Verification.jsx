@@ -28,6 +28,7 @@ export function Verification() {
     switch (approach) {
       case 'Adaptive_ML_Blend':
       case 'SkyBlend_Temperature':
+      case 'SkyBlend_Wind':
         return '#F8FAFC';
       case 'ECMWF_IFS':
         return '#64748B';
@@ -46,6 +47,7 @@ export function Verification() {
 
   const getApproachLabel = (approach) => {
     if (approach === 'SkyBlend_Temperature') return 'SkyBlend Temperature';
+    if (approach === 'SkyBlend_Wind') return 'SkyBlend Wind (Historical-Weighted)';
     return approach.replace(/_/g, ' ');
   };
 
@@ -54,13 +56,19 @@ export function Verification() {
 
   const scopeTitle = isTemp
     ? 'GROUND-STATION INDEPENDENT VERIFICATION'
+    : isWind
+    ? 'PRE-MONSOON HELD-OUT TEST & STATION GROUND-TRUTH'
     : 'HELD-OUT EVALUATION SCOPE';
 
   const scopeDesc = evaluation_scope || (isTemp
     ? 'Independent Ground-Station Verification — Kolkata / Alipore WMO 42807 (3,957 instances)'
+    : isWind
+    ? 'Multi-Location Test Split (7,914 instances, ERA5 Reference) • Physical Validation on Kolkata WMO 42807 (3,648 instances)'
     : 'Six Demonstration Locations • Three NWP Sources • July 2024 Monsoon Period');
 
   const periodLabel = isTemp
+    ? 'PRE-MONSOON HELD-OUT TEST (APRIL – MAY 2024)'
+    : isWind
     ? 'PRE-MONSOON HELD-OUT TEST (APRIL – MAY 2024)'
     : 'JULY 2024 EXTERNAL MONSOON HOLDOUT';
 
@@ -86,7 +94,7 @@ export function Verification() {
         </div>
       </div>
 
-      {isWind ? (
+      {isWind && data?.status === 'unavailable' ? (
         <WindUnavailableNotice message="Verification metrics for wind are strictly unavailable: No validated reference anemometer dataset or multi-model NWP wind forecasts are currently ingested. In compliance with scientific honesty guidelines, metrics are not synthesized." />
       ) : (
         <>
@@ -101,7 +109,7 @@ export function Verification() {
               </div>
             </div>
             <div style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              {isTemp ? '3,957 STATION-HOURS' : '36,288 ALIGNED RECORDS'}
+              {isTemp ? '3,957 STATION-HOURS' : isWind ? '7,914 TEST INSTANCES' : '36,288 ALIGNED RECORDS'}
             </div>
           </div>
 
@@ -120,7 +128,7 @@ export function Verification() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
               {rankedTable.map((row) => {
-                const isSkyBlend = row.Approach === 'Adaptive_ML_Blend' || row.Approach === 'SkyBlend_Temperature';
+                const isSkyBlend = row.Approach === 'Adaptive_ML_Blend' || row.Approach === 'SkyBlend_Temperature' || row.Approach === 'SkyBlend_Wind';
                 const color = getApproachColor(row.Approach);
                 const maeVal = Number(row.MAE);
                 const barWidthPct = (maeVal / maxMae) * 100;
@@ -189,14 +197,14 @@ export function Verification() {
                     <th style={{ textAlign: 'center' }}>RMSE ({unit}) ↓</th>
                     <th style={{ textAlign: 'center' }}>BIAS ({unit})</th>
                     <th style={{ textAlign: 'center' }}>PEARSON R ↑</th>
-                    {!isTemp && <th style={{ textAlign: 'center' }}>POD (≥1.0) ↑</th>}
-                    {!isTemp && <th style={{ textAlign: 'center' }}>FAR (≥1.0) ↓</th>}
-                    {!isTemp && <th style={{ textAlign: 'center' }}>CSI (≥1.0) ↑</th>}
+                    {!isTemp && !isWind && <th style={{ textAlign: 'center' }}>POD (≥1.0) ↑</th>}
+                    {!isTemp && !isWind && <th style={{ textAlign: 'center' }}>FAR (≥1.0) ↓</th>}
+                    {!isTemp && !isWind && <th style={{ textAlign: 'center' }}>CSI (≥1.0) ↑</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {table.map((row) => {
-                    const isSkyBlend = row.Approach === 'Adaptive_ML_Blend' || row.Approach === 'SkyBlend_Temperature';
+                    const isSkyBlend = row.Approach === 'Adaptive_ML_Blend' || row.Approach === 'SkyBlend_Temperature' || row.Approach === 'SkyBlend_Wind';
                     const pCorr = row.Pearson_r !== undefined ? row.Pearson_r : row['Pearson r'];
                     return (
                       <tr
@@ -221,17 +229,17 @@ export function Verification() {
                         <td style={{ textAlign: 'center', fontWeight: isSkyBlend ? 'var(--fw-hero)' : 'var(--fw-body)', color: isSkyBlend ? '#F8FAFC' : 'inherit', fontSize: 'var(--font-small)' }}>
                           {pCorr != null ? Number(pCorr).toFixed(4) : '—'}
                         </td>
-                        {!isTemp && (
+                        {!isTemp && !isWind && (
                           <td style={{ textAlign: 'center', fontSize: 'var(--font-small)' }}>
                             {row.POD != null ? Number(row.POD).toFixed(4) : '—'}
                           </td>
                         )}
-                        {!isTemp && (
+                        {!isTemp && !isWind && (
                           <td style={{ textAlign: 'center', fontSize: 'var(--font-small)' }}>
                             {row.FAR != null ? Number(row.FAR).toFixed(4) : '—'}
                           </td>
                         )}
-                        {!isTemp && (
+                        {!isTemp && !isWind && (
                           <td style={{ textAlign: 'center', fontSize: 'var(--font-small)' }}>
                             {row.CSI != null ? Number(row.CSI).toFixed(4) : '—'}
                           </td>
@@ -256,6 +264,8 @@ export function Verification() {
             }}>
               <b>Evaluation Summary:</b> {isTemp
                 ? 'SkyBlend Temperature achieves lowest MAE (1.0144°C), lowest RMSE (1.3772°C), and highest Pearson correlation (0.9496) against independent Kolkata Alipore station observations.'
+                : isWind
+                ? 'SkyBlend Wind (Historical-Weighted) achieves lowest MAE (2.369 km/h, -14.3% vs ECMWF), lowest RMSE (3.238 km/h), and highest correlation (0.854) across 7,914 held-out test hours, and 3.618 km/h on independent Kolkata station truth.'
                 : 'Adaptive ML Blend leads on MAE and FAR; other approaches lead on individual metrics under the July 2024 monsoon holdout.'}
             </div>
           </div>

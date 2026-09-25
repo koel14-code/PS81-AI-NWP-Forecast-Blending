@@ -31,6 +31,8 @@ export function ForecastChart({ series = [], title = "Forecast Signal", unit = "
   const refKey =
     variable === 'temperature'
       ? 'reference_temperature'
+      : variable === 'wind'
+      ? 'reference_wind'
       : 'reference_precipitation';
 
   const hasReference = formattedData[0]?.[refKey] !== undefined;
@@ -64,7 +66,7 @@ export function ForecastChart({ series = [], title = "Forecast Signal", unit = "
               <Line
                 type="monotone"
                 dataKey={refKey}
-                name={variable === 'temperature' ? 'Station Ref (42807)' : 'ERA5 Reference'}
+                name={variable === 'temperature' ? 'Station Ref (42807)' : variable === 'wind' ? 'ERA5 Ref (10m)' : 'ERA5 Reference'}
                 stroke="#475569"
                 strokeDasharray="4 4"
                 strokeWidth={1.8}

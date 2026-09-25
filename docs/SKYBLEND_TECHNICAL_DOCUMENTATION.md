@@ -1066,32 +1066,27 @@ overview. This document provides the deeper technical record.
 
 ## 28. Production vs Research Artifacts
 
-The following distinction should be preserved:
+The following distinction is strictly preserved across the codebase:
 
-### Production/frozen
+### Production / Validated Core
 
--   Phase 6 expanded-year dataset;
--   12 production features;
--   three fitted error regressors;
--   inverse-error adaptive weighting;
--   convex blending;
--   peak lift with alpha 0.35;
--   rain threshold 2.0 mm/h;
--   FastAPI runtime;
--   React/Vite frontend.
+-   **Precipitation Blending**: Phase 6 expanded-year HistGradientBoosting error regressors in `models/expanded_full_year/`; peak-lift $\alpha = 0.35$; rain threshold $\tau = 2.0\text{ mm/h}$;
+-   **Temperature Blending**: Consensus-based temperature error prediction in `models/temperature/` (continuous, no peak-lift);
+-   **10m Surface Wind Speed Blending**: Historical-Error Weighted Blend ($w_m \propto \frac{1}{\text{rolling\_24h\_MAE}_m + 10^{-4}}$) over ECMWF IFS, NOAA GFS, and DWD ICON;
+-   **Inference Runtimes**: Zero learned model files required for wind; audited causal training priors (ECMWF $2.29$, GFS $3.15$, ICON $4.77\text{ km/h}$) as runtime fallbacks;
+-   **Service & Delivery**: FastAPI runtime (`src/api/main.py`) serving precipitation, temperature, and wind; React/Vite dashboard (`frontend/`).
 
-### Research/isolated
+### Research Only / Isolated Sandbox
 
--   Phase 8A atmospheric features;
--   Phase 9 evaluation hardening;
--   Phase 10A direct forecast models;
--   Phase 10B regime gate;
--   Phase 11 richer regime gate;
--   associated experimental model artifacts and reports.
+-   **Wind GBDT Model**: Researched in Phase 2 (`evaluate_wind_models_complete.py`), held out from production to avoid overfitting and preserve zero-artifact simplicity;
+-   **Wind Ridge Model**: Researched in Phase 2, held out from production;
+-   **Calibrated Rainfall Models**: Calib-1, Calib-2, and Calib-3 reliability layers;
+-   **Experimental Regime Gates**: Phase 10A direct forecast models, Phase 10B heuristic regime gate, Phase 11 multi-layer gating sandbox;
+-   **Atmospheric Predictors**: Phase 8A upper-air and soundings feature experiments;
+-   **Continuous Pre-training**: Phase 9 research experiments.
 
-Research results are valuable for scientific analysis and future
-development, but they are not silently promoted into the production
-path.
+Research results provide valuable scientific insights but are strictly isolated from the production serving pipeline.
+
 
 ------------------------------------------------------------------------
 

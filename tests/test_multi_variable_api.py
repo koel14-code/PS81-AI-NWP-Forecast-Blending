@@ -20,6 +20,7 @@ def test_api_health():
     assert "precipitation" in data["supported_variables"]
     assert "temperature" in data["supported_variables"]
     assert "wind" in data["supported_variables"]
+    assert data["variable_status"]["wind"] == "production_validated"
 
 
 def test_api_overview_variables():
@@ -28,10 +29,11 @@ def test_api_overview_variables():
         assert res.status_code == 200
         data = res.json()["data"]
         assert data["variable"] == v
-        if v == "wind":
-            assert data["status"] == "unavailable"
+        assert data["unit"] in ["mm/h", "°C", "km/h"]
+        if v in ["precipitation", "wind"]:
+            assert data["status"] == "production_validated"
         else:
-            assert data["unit"] in ["mm/h", "°C"]
+            assert data["status"] == "implemented_extension"
 
 
 @pytest.mark.parametrize("city", CITIES)
@@ -64,13 +66,19 @@ def test_temperature_forecast(city, day):
         assert 10.0 <= blend <= 55.0
 
 
-def test_wind_forecast_unavailable():
-    res = client.get("/api/forecast?location=kolkata&lead_day=1&variable=wind")
+@pytest.mark.parametrize("city", CITIES)
+@pytest.mark.parametrize("day", LEAD_DAYS)
+def test_wind_forecast(city, day):
+    res = client.get(f"/api/forecast?location={city}&lead_day={day}&variable=wind")
     assert res.status_code == 200
     data = res.json()["data"]
     assert data["variable"] == "wind"
-    assert data["status"] == "unavailable"
-    assert "reason" in data
+    assert data["unit"] == "km/h"
+    assert len(data["series"]) == 24
+    for pt in data["series"]:
+        blend = pt["blended_wind"]
+        assert not math.isnan(blend) and not math.isinf(blend)
+        assert blend >= 0.0
 
 
 def test_forecast_backward_compatibility():
@@ -82,7 +90,7 @@ def test_forecast_backward_compatibility():
 
 
 def test_weights_sum_to_one():
-    for v in ["precipitation", "temperature"]:
+    for v in VARIABLES:
         for city in CITIES[:2]:
             res = client.get(f"/api/weights?location={city}&lead_day=1&variable={v}")
             assert res.status_code == 200
@@ -96,7 +104,7 @@ def test_weights_sum_to_one():
 
 
 def test_spatial_weights():
-    for v in ["precipitation", "temperature"]:
+    for v in VARIABLES:
         res = client.get(f"/api/spatial-weights?lead_day=1&variable={v}")
         assert res.status_code == 200
         data = res.json()["data"]
@@ -110,9 +118,15 @@ def test_verification():
 
     res_t = client.get("/api/verification?variable=temperature")
     assert res_t.status_code == 200
-    table = res_t.json()["data"]["table"]
-    skyblend_row = next(r for r in table if r["Approach"] == "SkyBlend_Temperature")
-    assert abs(skyblend_row["MAE"] - 1.0144) < 1e-3
+    table_t = res_t.json()["data"]["table"]
+    skyblend_t = next(r for r in table_t if r["Approach"] == "SkyBlend_Temperature")
+    assert abs(skyblend_t["MAE"] - 1.0144) < 1e-3
+
+    res_w = client.get("/api/verification?variable=wind")
+    assert res_w.status_code == 200
+    table_w = res_w.json()["data"]["table"]
+    skyblend_w = next(r for r in table_w if r["Approach"] == "SkyBlend_Wind")
+    assert abs(skyblend_w["MAE"] - 2.3690) < 1e-3
 
 
 def test_extreme_signal():
@@ -126,7 +140,8 @@ def test_extreme_signal():
 
     res_w = client.get("/api/extreme-signal?location=kolkata&lead_day=1&variable=wind")
     assert res_w.status_code == 200
-    assert res_w.json()["data"]["status"] == "NOT CONFIGURED / INSUFFICIENT EVIDENCE"
+    assert res_w.json()["data"]["threshold"] == 40.0
+    assert "blended_wind" in res_w.json()["data"]["series"][0]
 
 
 def test_methodology_stages():
@@ -135,3 +150,9 @@ def test_methodology_stages():
     data = res.json()["data"]
     assert len(data["pipeline_stages"]) == 10
     assert "production_vs_research" in data
+
+    res_w = client.get("/api/methodology?variable=wind")
+    assert res_w.status_code == 200
+    data_w = res_w.json()["data"]
+    assert "wind_methodology" in data_w
+    assert len(data_w["wind_methodology"]["nwp_members"]) == 3

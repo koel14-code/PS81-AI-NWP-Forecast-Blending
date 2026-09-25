@@ -36,6 +36,16 @@ const getTempConditionLabel = (val) => {
   return 'COOL / STABLE';
 };
 
+const getWindConditionLabel = (val) => {
+  const n = parseFloat(val);
+  if (isNaN(n)) return '—';
+  if (n < 12.0) return 'LIGHT BREEZE';
+  if (n < 29.0) return 'MODERATE BREEZE';
+  if (n < 50.0) return 'STRONG WIND';
+  if (n < 75.0) return 'GALE / SEVERE WIND';
+  return 'STORM FORCE';
+};
+
 export function Overview({ onNavigate }) {
   const [location, setLocation] = useState('kolkata');
   const [leadDay, setLeadDay] = useState(1);
@@ -92,9 +102,9 @@ export function Overview({ onNavigate }) {
     conditionLabel = rawMax != null ? getTempConditionLabel(rawMax) : '—';
   } else if (variable === 'wind') {
     unit = 'km/h';
-    metricTitle = `MAXIMUM WIND SPEED — ${location.toUpperCase()} (DAY ${leadDay})`;
-    rawMax = null;
-    conditionLabel = 'TELEMETRY PENDING';
+    metricTitle = `MAXIMUM 10M WIND SPEED — ${location.toUpperCase()} (DAY ${leadDay})`;
+    rawMax = series.length > 0 ? Math.max(...series.map((s) => s.blended_wind || 0)) : null;
+    conditionLabel = rawMax != null ? getWindConditionLabel(rawMax) : '—';
   } else {
     unit = 'mm/h';
     metricTitle = `PEAK RAINFALL INTENSITY — ${location.toUpperCase()} (DAY ${leadDay})`;
@@ -115,9 +125,9 @@ export function Overview({ onNavigate }) {
     return { ...item, timeLabel: t };
   });
 
-  const ecmwfPct = weightsData?.means?.ECMWF_IFS != null && !isWind ? Math.round(weightsData.means.ECMWF_IFS * 100) : null;
-  const gfsPct = weightsData?.means?.NOAA_GFS != null && !isWind ? Math.round(weightsData.means.NOAA_GFS * 100) : null;
-  const iconPct = weightsData?.means?.DWD_ICON != null && !isWind ? Math.round(weightsData.means.DWD_ICON * 100) : null;
+  const ecmwfPct = weightsData?.means?.ECMWF_IFS != null ? Math.round(weightsData.means.ECMWF_IFS * 100) : null;
+  const gfsPct = weightsData?.means?.NOAA_GFS != null ? Math.round(weightsData.means.NOAA_GFS * 100) : null;
+  const iconPct = weightsData?.means?.DWD_ICON != null ? Math.round(weightsData.means.DWD_ICON * 100) : null;
 
   const targetDate = forecastData?.target_date || '—';
   const runTime = forecastData?.forecast_run_time ? forecastData.forecast_run_time.substring(0, 10) + ' 00:00 UTC' : '—';
@@ -257,19 +267,19 @@ export function Overview({ onNavigate }) {
           {/* Model Contribution Pills */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255, 255, 255, 0.03)', padding: '8px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
             <span style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', textTransform: 'uppercase' }}>CONTRIBUTIONS:</span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94A3B8' }}>ECMWF {ecmwfPct != null ? `${ecmwfPct}%` : isWind ? '—' : '—'}</span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#A855F7' }}>GFS {gfsPct != null ? `${gfsPct}%` : isWind ? '—' : '—'}</span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#10B981' }}>ICON {iconPct != null ? `${iconPct}%` : isWind ? '—' : '—'}</span>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94A3B8' }}>ECMWF {ecmwfPct != null ? `${ecmwfPct}%` : '—'}</span>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#A855F7' }}>GFS {gfsPct != null ? `${gfsPct}%` : '—'}</span>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#10B981' }}>ICON {iconPct != null ? `${iconPct}%` : '—'}</span>
           </div>
         </div>
 
-        {/* 24H Trajectory Line Chart OR Wind Notice */}
-        {isWind ? (
+        {/* 24H Trajectory Line Chart OR Wind Fallback Notice */}
+        {isWind && forecastData?.status === 'unavailable' ? (
           <WindUnavailableNotice compact message="NWP 10m wind speed telemetry is currently pending ingestion. The dynamic forecast chart will activate upon dataset attachment." />
         ) : (
           <div>
             <div style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-              {variable === 'temperature' ? 'TEMPERATURE TRAJECTORY (24H HORIZON)' : 'PRECIPITATION TRAJECTORY (24H HORIZON)'}
+              {variable === 'temperature' ? 'TEMPERATURE TRAJECTORY (24H HORIZON)' : variable === 'wind' ? '10M WIND SPEED TRAJECTORY (24H HORIZON)' : 'PRECIPITATION TRAJECTORY (24H HORIZON)'}
             </div>
             <div style={{ width: '100%', height: 260 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -294,12 +304,15 @@ export function Overview({ onNavigate }) {
                   {formattedTrajectory[0]?.reference_temperature !== undefined && (
                     <Line type="monotone" dataKey="reference_temperature" name="Station 42807 Ref" stroke="#475569" strokeDasharray="4 4" strokeWidth={1.5} dot={false} isAnimationActive={true} animationDuration={1000} />
                   )}
+                  {formattedTrajectory[0]?.reference_wind !== undefined && (
+                    <Line type="monotone" dataKey="reference_wind" name="ERA5 Ref (10m)" stroke="#475569" strokeDasharray="4 4" strokeWidth={1.5} dot={false} isAnimationActive={true} animationDuration={1000} />
+                  )}
                   <Line type="monotone" dataKey="ECMWF_IFS" name="ECMWF IFS" stroke="#64748B" strokeWidth={1.4} dot={false} opacity={0.7} isAnimationActive={true} animationDuration={1000} />
                   <Line type="monotone" dataKey="NOAA_GFS" name="NOAA GFS" stroke="#A855F7" strokeWidth={1.4} dot={false} opacity={0.7} isAnimationActive={true} animationDuration={1000} />
                   <Line type="monotone" dataKey="DWD_ICON" name="DWD ICON" stroke="#10B981" strokeWidth={1.4} dot={false} opacity={0.7} isAnimationActive={true} animationDuration={1000} />
                   <Line
                     type="monotone"
-                    dataKey={variable === 'temperature' ? 'blended_temperature' : 'blended_precipitation'}
+                    dataKey={variable === 'temperature' ? 'blended_temperature' : variable === 'wind' ? 'blended_wind' : 'blended_precipitation'}
                     name="SkyBlend AI"
                     stroke="#F8FAFC"
                     strokeWidth={2.8}
@@ -411,7 +424,7 @@ export function Overview({ onNavigate }) {
             WHY THIS FORECAST FOR {location.toUpperCase()}?
           </div>
 
-          {isWind ? (
+          {isWind && forecastData?.status === 'unavailable' ? (
             <div style={{ fontSize: 'var(--font-small)', color: 'var(--text-muted)', padding: '1rem 0' }}>
               Model contributions for wind will be computed upon attachment of multi-model 10m wind vector telemetry.
             </div>

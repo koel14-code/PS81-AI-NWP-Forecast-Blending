@@ -48,16 +48,20 @@ export function ForecastIntelligence() {
   const iconMae = getMaeForModel('DWD_ICON') || '—';
   const blendMae = isTemp
     ? getMaeForModel('SkyBlend_Temperature') || '—'
+    : isWind
+    ? getMaeForModel('SkyBlend_Wind') || '—'
     : getMaeForModel('Adaptive_ML_Blend') || '—';
 
   const benchmarkSubtitle = isTemp
     ? 'GROUND-STATION BENCHMARK PROFILE (WMO 42807 KOLKATA ALIPORE • PRE-MONSOON TEST)'
+    : isWind
+    ? 'HISTORICAL MODEL SKILL PROFILE (PRE-MONSOON HELD-OUT TEST EVALUATION)'
     : 'HISTORICAL MODEL SKILL PROFILE (JULY 2024 HELD-OUT EVALUATION)';
 
   const chartTitle = isTemp
     ? `Temperature Trajectories — ${location.toUpperCase()} (Day ${leadDay} Horizon)`
     : isWind
-    ? `Wind Speed Trajectories — ${location.toUpperCase()} (Day ${leadDay} Horizon)`
+    ? `10m Wind Speed Trajectories — ${location.toUpperCase()} (Day ${leadDay} Horizon)`
     : `Precipitation Trajectories — ${location.toUpperCase()} (Day ${leadDay} Horizon)`;
 
   return (
@@ -175,7 +179,7 @@ export function ForecastIntelligence() {
         <LoadingState message={`Fetching ${variable} forecast signal for ${location.toUpperCase()} (Day ${leadDay})...`} />
       ) : error ? (
         <ErrorState error={error} onRetry={retry} />
-      ) : isWind ? (
+      ) : isWind && data?.status === 'unavailable' ? (
         <WindUnavailableNotice />
       ) : (
         <>

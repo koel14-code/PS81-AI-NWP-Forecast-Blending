@@ -162,7 +162,7 @@ export function AdaptiveWeights() {
         <LoadingState message={`Calculating adaptive contribution weights for ${location.toUpperCase()} (${variable})...`} />
       ) : error ? (
         <ErrorState error={error} onRetry={retry} />
-      ) : isWind ? (
+      ) : isWind && data?.status === 'unavailable' ? (
         <WindUnavailableNotice message="Adaptive weights for wind forecasting require multi-model NWP 10m wind vector inputs, which are pending ingestion." />
       ) : (
         <>
@@ -203,7 +203,7 @@ export function AdaptiveWeights() {
                     { num: '01', title: 'Historical Skill', desc: 'Evaluates rolling error performance per source' },
                     { num: '02', title: 'Location Context', desc: 'Accounts for regional microclimates and topography' },
                     { num: '03', title: 'Lead-Time Context', desc: 'Adjusts trust based on 24h, 48h, 72h forecast decay' },
-                    { num: '04', title: 'Adaptive Weight Engine', desc: 'Gradient boosting predicts expected error ê_m' },
+                    { num: '04', title: isWind ? 'Historical Reliability Engine' : 'Adaptive Weight Engine', desc: isWind ? 'Inverse 24h rolling MAE determines model reliability' : 'Gradient boosting predicts expected error ê_m' },
                     { num: '05', title: 'Blended Forecast', desc: 'Combines predictions via normalized sum-to-1 weights' },
                   ].map((step, idx) => (
                     <div
@@ -275,6 +275,11 @@ export function AdaptiveWeights() {
                   {isTemp && (
                     <span style={{ display: 'block', marginTop: '6px', color: '#CBD5E1', fontStyle: 'italic' }}>
                       (Temperature weights use continuous consensus without rainfall peak-lift.)
+                    </span>
+                  )}
+                  {isWind && (
+                    <span style={{ display: 'block', marginTop: '6px', color: '#CBD5E1', fontStyle: 'italic' }}>
+                      (Wind weights use historical-error inverse-MAE consensus: w_m ∝ 1 / (MAE_24h + 10⁻⁴).)
                     </span>
                   )}
                 </div>

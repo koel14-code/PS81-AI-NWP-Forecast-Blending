@@ -123,13 +123,13 @@ export function Methodology() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <ShieldCheck size={18} color="#34D399" />
               <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#34D399', letterSpacing: '0.04em' }}>
-                PRODUCTION-VALIDATED (FROZEN BASELINE)
+                PRODUCTION-VALIDATED (FROZEN BASELINES)
               </div>
             </div>
             <ul style={{ paddingLeft: '1.2rem', margin: 0, fontSize: 'var(--font-small)', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-              <li><b>Precipitation Blending</b>: Phase 6 HistGradientBoosting models in <code>models/expanded_full_year/</code>.</li>
-              <li><b>Calibration</b>: Peak-lift α = 0.35, rain threshold τ = 2.0 mm/h.</li>
-              <li><b>Verification</b>: July 2024 held-out evaluation & independent Kolkata WMO 42807 ground-station test.</li>
+              <li><b>Precipitation Blending</b>: Phase 6 HistGradientBoosting models in <code>models/expanded_full_year/</code> (α = 0.35, τ = 2.0 mm/h).</li>
+              <li><b>10m Wind Speed Blending</b>: Historical-Error Weighted Blend (w_m ∝ 1/(MAE_m + ε)) over ECMWF, GFS, ICON.</li>
+              <li><b>Dual Verification</b>: Held-out test evaluation (ERA5 reference) + independent Kolkata WMO 42807 physical ground-station validation.</li>
             </ul>
           </div>
 
@@ -142,9 +142,9 @@ export function Methodology() {
               </div>
             </div>
             <ul style={{ paddingLeft: '1.2rem', margin: 0, fontSize: 'var(--font-small)', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-              <li><b>2m Temperature Blending</b>: Continuous error prediction in <code>models/temperature/</code> (no peak-lift).</li>
+              <li><b>2m Temperature Blending</b>: Continuous error prediction in <code>models/temperature/</code> (consensus without peak-lift).</li>
               <li><b>Station Benchmark</b>: WMO 42807 test (MAE 1.0144°C vs ECMWF 1.1180°C).</li>
-              <li><b>Diagnostic Guidance</b>: Weather-regime context & 38.0°C heat-hazard signals.</li>
+              <li><b>Hazard Guidance</b>: Weather-regime context, 38.0°C heat-risk & 40.0 km/h wind-risk analytical signals.</li>
             </ul>
           </div>
 
@@ -157,23 +157,24 @@ export function Methodology() {
               </div>
             </div>
             <ul style={{ paddingLeft: '1.2rem', margin: 0, fontSize: 'var(--font-small)', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-              <li><b>Phase 8A & 9</b>: Atmospheric predictor & continuous pre-training experiments.</li>
-              <li><b>Phase 10A / 10B</b>: Experimental dual-gate architecture (rejected from production).</li>
-              <li><b>Phase 11</b>: Hybrid multi-layer gating research sandbox.</li>
+              <li><b>Wind Research Models</b>: Wind GBDT error predictor & Wind Ridge blender (isolated research-only).</li>
+              <li><b>Calibrated Rainfall Models</b>: Calib-1, Calib-2, and Calib-3 reliability models.</li>
+              <li><b>Phase 10A / 10B / 11</b>: Experimental dual-gate and regime-gating research sandboxes.</li>
             </ul>
           </div>
 
-          {/* Unvalidated / Telemetry Pending */}
+          {/* Scientific Limitations & References */}
           <div style={{ background: 'rgba(100, 116, 139, 0.04)', border: '1px solid rgba(100, 116, 139, 0.2)', borderRadius: '12px', padding: '1.1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <Database size={18} color="#94A3B8" />
               <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#94A3B8', letterSpacing: '0.04em' }}>
-                TELEMETRY PENDING INGESTION
+                SCIENTIFIC SCOPE & LIMITATIONS
               </div>
             </div>
             <ul style={{ paddingLeft: '1.2rem', margin: 0, fontSize: 'var(--font-small)', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-              <li><b>10m Wind Speed & Vectors</b>: Multi-model (u10, v10) fields pending repository ingestion.</li>
-              <li><b>Zero Synthetic Numbers</b>: Wind forecasts and validation metrics are strictly withheld until telemetry arrives.</li>
+              <li><b>ERA5 Reference</b>: Reanalysis is a spatial areal proxy for multi-city evaluation, NOT ground truth.</li>
+              <li><b>Physical Ground Truth</b>: Kolkata WMO 42807 surface station; no IMD operational telemetry claimed.</li>
+              <li><b>Open-Meteo Streams</b>: Continuous hourly series; no physical forecast lead degradation claimed.</li>
             </ul>
           </div>
         </div>

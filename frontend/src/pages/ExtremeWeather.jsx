@@ -42,9 +42,9 @@ export function ExtremeWeather() {
         border: 'rgba(100, 116, 139, 0.35)',
       };
     }
-    if (s.includes('ACTIVE') || s.includes('HEAT') || isFlagged) {
+    if (s.includes('ACTIVE') || s.includes('HEAT') || s.includes('HIGH-WIND') || isFlagged) {
       return {
-        label: isTemp ? 'HIGH-TEMPERATURE / HEAT-RISK SIGNAL' : 'ACTIVE PRECIPITATION SIGNAL',
+        label: isTemp ? 'HIGH-TEMPERATURE / HEAT-RISK SIGNAL' : isWind ? 'HIGH-WIND SPEED ANALYTICAL SIGNAL' : 'ACTIVE PRECIPITATION SIGNAL',
         color: '#EF4444',
         bg: 'rgba(239, 68, 68, 0.12)',
         border: 'rgba(239, 68, 68, 0.35)',
@@ -58,7 +58,7 @@ export function ExtremeWeather() {
       };
     } else {
       return {
-        label: 'BELOW ANALYTICAL THRESHOLD',
+        label: isWind ? 'BELOW PROJECT HIGH-WIND THRESHOLD' : 'BELOW ANALYTICAL THRESHOLD',
         color: '#10B981',
         bg: 'rgba(16, 185, 129, 0.12)',
         border: 'rgba(16, 185, 129, 0.35)',
@@ -156,7 +156,7 @@ export function ExtremeWeather() {
         <LoadingState message={`Analyzing ${variable} extreme guidance for ${location.toUpperCase()}...`} />
       ) : error ? (
         <ErrorState error={error} onRetry={retry} />
-      ) : isWind ? (
+      ) : isWind && data?.status === 'unavailable' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="glass-card hero-glass-panel" style={{ padding: '1.6rem', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -166,7 +166,7 @@ export function ExtremeWeather() {
               </div>
             </div>
             <p style={{ fontSize: 'var(--font-body)', color: 'var(--text-muted)', margin: 0, lineHeight: 'var(--lh-relaxed)' }}>
-              Wind speed extreme-weather thresholds cannot be scientifically justified without multi-model 10m wind vector telemetry. To preserve scientific honesty, arbitrary wind thresholds are strictly withheld rather than displaying synthetic alerts.
+              Wind speed telemetry is currently unavailable. To preserve scientific honesty, arbitrary wind thresholds are strictly withheld rather than displaying synthetic alerts.
             </p>
           </div>
           <WindUnavailableNotice compact />
@@ -177,9 +177,11 @@ export function ExtremeWeather() {
           {(() => {
             const statusCfg = getStatusConfig(data?.status, data?.is_flagged);
             const currentVal = data?.max_blended || 0;
-            const thresholdVal = data?.threshold || (isTemp ? 38.0 : 1.0);
+            const thresholdVal = data?.threshold || (isTemp ? 38.0 : isWind ? 40.0 : 1.0);
             const maxGaugeVal = isTemp
               ? Math.max(50.0, currentVal * 1.1)
+              : isWind
+              ? Math.max(60.0, thresholdVal * 1.5, currentVal * 1.2)
               : Math.max(thresholdVal * 2.5, currentVal * 1.2, 3.0);
             const currentPct = Math.min((currentVal / maxGaugeVal) * 100, 100);
             const thresholdPct = Math.min((thresholdVal / maxGaugeVal) * 100, 100);
@@ -218,7 +220,7 @@ export function ExtremeWeather() {
 
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 'var(--font-meta)', fontWeight: 'var(--fw-meta)', color: 'var(--text-subtle)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                      {isTemp ? 'MAXIMUM BLENDED TEMPERATURE' : 'MAXIMUM BLENDED PRECIPITATION'}
+                      {isTemp ? 'MAXIMUM BLENDED TEMPERATURE' : isWind ? 'MAXIMUM BLENDED 10M WIND SPEED' : 'MAXIMUM BLENDED PRECIPITATION'}
                     </div>
                     <div style={{ fontSize: 'var(--font-stat)', fontWeight: 'var(--fw-hero)', color: '#F8FAFC', lineHeight: 'var(--lh-tight)', marginTop: '2px' }}>
                       {currentVal.toFixed(1)} <span style={{ fontSize: 'var(--font-small)', fontWeight: 'var(--fw-section)', color: 'var(--text-muted)' }}>{unit}</span>
@@ -301,6 +303,8 @@ export function ExtremeWeather() {
               <div style={{ fontSize: 'var(--font-body)', color: 'var(--text-muted)', lineHeight: 'var(--lh-relaxed)' }}>
                 {isTemp ? (
                   <>The <b>38.0°C threshold</b> is a calibrated project heat-risk indicator reflecting severe diurnal thermal stress across Indian urban centers.</>
+                ) : isWind ? (
+                  <>The <b>40.0 km/h threshold</b> (Beaufort Force 6 strong breeze) is an analytical project diagnostic threshold for surface wind velocity across Indian urban corridors. It is NOT an official IMD disaster warning.</>
                 ) : (
                   <>The <b>1.0 mm/h threshold</b> is a calibrated project precipitation advisory threshold identifying non-trivial rain episodes across evaluation lead horizons.</>
                 )}
@@ -332,9 +336,9 @@ export function ExtremeWeather() {
                   />
                   <Legend wrapperStyle={{ color: '#94A3B8', fontSize: '12px', paddingTop: '8px' }} />
                   <ReferenceLine
-                    y={data?.threshold || (isTemp ? 38.0 : 1.0)}
+                    y={data?.threshold || (isTemp ? 38.0 : isWind ? 40.0 : 1.0)}
                     label={{
-                      value: `Project analytical threshold (${(data?.threshold || (isTemp ? 38.0 : 1.0)).toFixed(1)} ${unit})`,
+                      value: `Project analytical threshold (${(data?.threshold || (isTemp ? 38.0 : isWind ? 40.0 : 1.0)).toFixed(1)} ${unit})`,
                       fill: '#EF4444',
                       fontSize: 11,
                       position: 'insideTopRight'
@@ -349,9 +353,12 @@ export function ExtremeWeather() {
                   {chartSeries[0]?.reference_temperature !== undefined && (
                     <Line type="monotone" dataKey="reference_temperature" name="Station Ref" stroke="#475569" strokeDasharray="4 4" strokeWidth={1.8} dot={false} />
                   )}
+                  {chartSeries[0]?.reference_wind !== undefined && (
+                    <Line type="monotone" dataKey="reference_wind" name="ERA5 Ref (10m)" stroke="#475569" strokeDasharray="4 4" strokeWidth={1.8} dot={false} />
+                  )}
                   <Line
                     type="monotone"
-                    dataKey={isTemp ? 'blended_temperature' : 'blended_precipitation'}
+                    dataKey={isTemp ? 'blended_temperature' : isWind ? 'blended_wind' : 'blended_precipitation'}
                     name="SkyBlend AI Forecast"
                     stroke="#F8FAFC"
                     strokeWidth={2.8}

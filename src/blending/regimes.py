@@ -44,9 +44,21 @@ def classify_temperature_regime(temp_c: float, ensemble_std: float = 0.0) -> str
 
 def classify_wind_regime(wind_kmh: float = 0.0, ensemble_std: float = 0.0) -> str:
     """
-    Classifies wind forecast context. Marked as unvalidated when telemetry is pending.
+    Classifies wind forecast context based on 10m scalar wind speed (km/h) and model spread.
+    Uses standard meteorological Beaufort scale bins for analytical guidance.
     """
-    return "Telemetry Pending Ingestion"
+    if ensemble_std >= 5.0 and wind_kmh >= 15.0:
+        return "High Model Disagreement (≥ 5.0 km/h Spread)"
+    if wind_kmh < 12.0:
+        return "Calm / Light Breeze (< 12 km/h)"
+    elif wind_kmh < 29.0:
+        return "Moderate Breeze (12–28 km/h)"
+    elif wind_kmh < 50.0:
+        return "Strong Wind / Near Gale (29–49 km/h)"
+    elif wind_kmh < 75.0:
+        return "Gale / Severe Wind (50–74 km/h)"
+    else:
+        return "Storm / Violent Storm Force (≥ 75 km/h)"
 
 
 def get_variable_metadata(variable: str) -> Dict[str, Any]:
@@ -79,7 +91,7 @@ def get_variable_metadata(variable: str) -> Dict[str, Any]:
             "variable": "wind",
             "display_name": "10m Wind Speed",
             "unit": "km/h",
-            "status": "unvalidated_pending_ingestion",
+            "status": "production_validated",
             "metric_label": "Maximum Wind Speed",
             "extreme_threshold": 40.0,
             "severe_threshold": 60.0,
