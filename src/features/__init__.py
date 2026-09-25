@@ -1,9 +1,25 @@
 """
-Feature Engineering Subpackage.
+PS81 Feature Engineering Package.
 
-Modules under this subpackage handle:
-- Historical model skill index calculation (rolling RMSE, spatial bias).
-- Weather regime classification and seasonal encoding.
-- Spatial-temporal context features (elevation, coastal distance, lead time features).
-- Multi-model difference & variance metrics for blending inputs.
+Exports feature generation modules for time features, lead-time features,
+leakage-free rolling historical model errors, rainfall regime categorization,
+and one-hot model encodings.
 """
+
+from src.features.rainfall_features import (
+    compute_time_features,
+    compute_lead_features,
+    compute_rainfall_regime,
+    compute_rolling_historical_error,
+    encode_models,
+    generate_feature_dataset,
+)
+
+__all__ = [
+    "compute_time_features",
+    "compute_lead_features",
+    "compute_rainfall_regime",
+    "compute_rolling_historical_error",
+    "encode_models",
+    "generate_feature_dataset",
+]
