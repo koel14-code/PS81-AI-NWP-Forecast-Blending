@@ -209,6 +209,7 @@ def main():
         # Save artifacts
         out_dir = ROOT_DIR / "data" / "processed"
         df_test_results.to_csv(out_dir / "expanded_test_performance.csv", index=False)
+        df_test_results.to_csv(out_dir / "model_performance_test.csv", index=False)
         df_july_results.to_csv(out_dir / "july_holdout_performance.csv", index=False)
         print(f"\nSaved evaluation artifacts to: {out_dir}")
 

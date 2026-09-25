@@ -75,8 +75,11 @@ def main():
     df_features.to_csv(out_path, index=False)
     print(f"Saved engineered ML features dataset to: {out_path}")
 
-    # Backward compatibility: only update rainfall_ml_features.csv if updating baseline
-    if out_path.name == "multilocation_rainfall_ml_features.csv":
+    # Ensure compatibility aliases exist
+    if out_path.name == "multilocation_rainfall_ml_features_2023_06_to_2024_05.csv":
+        df_features.to_csv(output_dir / "multilocation_rainfall_ml_features.csv", index=False)
+        df_features.to_csv(output_dir / "rainfall_ml_features.csv", index=False)
+    elif out_path.name == "multilocation_rainfall_ml_features.csv":
         df_features.to_csv(output_dir / "rainfall_ml_features.csv", index=False)
 
     # Generate Feature Quality Report

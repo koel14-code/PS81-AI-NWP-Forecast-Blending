@@ -378,20 +378,24 @@ SkyBlend AI includes zero-configuration one-command startup scripts that automat
 - Verify Python 3.10+ and Node.js 18+ availability.
 - Initialize/reuse a local virtual environment (`.venv`).
 - Automatically install missing runtime dependencies (`requirements.runtime.txt`) and frontend packages (`npm install`).
-- Validate model artifacts and fallback to synthetic demo data if pre-computed tensors are absent.
+- **Authentic Data & Model Initialization:** Automatically verifies all datasets and trained weights. When starting for the first time on a clean clone (or if model weights are deleted), automatically runs the authentic data sourcing pipeline (Open-Meteo Historical API & ECMWF ERA5 for 6 Indian Metros) and trains all models (Rainfall Candidate F, Temperature Blender, Wind Operational Inputs) before launching.
 - Launch the **FastAPI backend** (`:8000`) and **React/Vite frontend** (`:5173`) in parallel.
 - Gracefully shut down both services with `Ctrl+C`.
 
 ### macOS / Linux
 Run the executable bash script from the repository root:
 ```bash
-./nwp
+./nwp                  # Normal startup (auto-ingests & trains if missing)
+./nwp --train          # Force re-train all models
+./nwp --rebuild-all    # Force re-fetch authentic data & re-train all models
 ```
 
 ### Windows (Command Prompt / Windows Terminal)
 Run the native batch script directly in **Command Prompt (`cmd.exe`)** or **Windows Terminal**:
 ```bat
-.\nwp.bat
+.\nwp.bat              REM Normal startup (auto-ingests & trains if missing)
+.\nwp.bat --train      REM Force re-train all models
+.\nwp.bat --rebuild-allREM Force re-fetch authentic data & re-train all models
 ```
 *(Or simply `nwp` in Command Prompt)*
 

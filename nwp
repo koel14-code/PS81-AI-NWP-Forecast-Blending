@@ -151,50 +151,19 @@ else
     success "Frontend dependencies are installed."
 fi
 
-# ── 6. Pre-flight: check critical data files ────────────────────────
-step "Pre-flight checks"
+# ── 6. Pre-flight: verify datasets and model weights ──────────────────
+step "Pre-flight: Data sources & Model weights"
 
-MISSING_DATA=false
-DATA_DIR="$SCRIPT_DIR/data/processed"
+PREP_ARGS=()
+for arg in "${@:-}"; do
+    case "$arg" in
+        --force|--rebuild-all) PREP_ARGS+=("--force") ;;
+        --train) PREP_ARGS+=("--train") ;;
+    esac
+done
 
-# Check for at least one of the key data files
-if [[ -f "$DATA_DIR/multilocation_rainfall_ml_features_2023_06_to_2024_05.csv" ]]; then
-    success "Rainfall features dataset found."
-else
-    warn "Rainfall features dataset not found — precipitation endpoints may return errors."
-    MISSING_DATA=true
-fi
-
-if [[ -f "$DATA_DIR/multilocation_temperature_forecast_inputs.csv" ]]; then
-    success "Temperature inputs dataset found."
-else
-    warn "Temperature inputs not found — temperature endpoints may return errors."
-    MISSING_DATA=true
-fi
-
-if [[ -f "$DATA_DIR/multilocation_wind_forecast_inputs.csv" ]]; then
-    success "Wind inputs dataset found."
-else
-    warn "Wind inputs not found — wind endpoints may return errors."
-    MISSING_DATA=true
-fi
-
-# Check model artifacts
-MODEL_DIR="$SCRIPT_DIR/models/expanded_full_year"
-if [[ -f "$MODEL_DIR/adaptive_blender_ECMWF_IFS.joblib" ]]; then
-    success "Phase 6 rainfall model artifacts found."
-else
-    warn "Phase 6 model artifacts (.joblib) not found — ML inference unavailable."
-    MISSING_DATA=true
-fi
-
-if [[ "$MISSING_DATA" == true ]]; then
-    echo ""
-    warn "Some data/model files are missing (they are gitignored)."
-    info "The API will start but some endpoints may return 500 errors."
-    info "Run the training pipeline to regenerate: python scripts/train_and_evaluate_expanded_model.py"
-    echo ""
-fi
+"$VENV_DIR/bin/python" "$SCRIPT_DIR/scripts/prepare_environment.py" ${PREP_ARGS[@]+"${PREP_ARGS[@]}"}
+success "Datasets and model weights are ready."
 
 # ── 7. Start Backend ────────────────────────────────────────────────
 step "Starting FastAPI Backend"

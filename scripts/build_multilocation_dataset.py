@@ -94,6 +94,9 @@ def main():
     combined_df = pd.concat(all_aligned_dfs, ignore_index=True)
     combined_df.to_csv(out_path, index=False)
     print(f"\nSaved combined multi-location training dataset to: {out_path}")
+    alias_path = out_path.parent / "multilocation_rainfall_training_dataset.csv"
+    if alias_path != out_path:
+        combined_df.to_csv(alias_path, index=False)
 
     # Print Comprehensive Pre-Training Validation Report
     print("\n" + "=" * 80)

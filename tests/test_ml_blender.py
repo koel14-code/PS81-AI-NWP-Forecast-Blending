@@ -20,6 +20,9 @@ def make_training_data():
                 "longitude": 88.3,
                 "precipitation": float(i + 1),
                 "rolling_historical_mae_24h": float(i + 1) * 0.1,
+                "ensemble_mean": float(i + 1),
+                "ensemble_std": 0.5,
+                "ensemble_range": 1.0,
                 "absolute_error": float(i + 1) * 0.2,
             })
 
