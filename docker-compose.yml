@@ -1,21 +1,17 @@
 services:
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
+    image: koel14/skyblend-backend:latest
     container_name: skyblend-backend
     expose:
       - "8000"
     restart: unless-stopped
 
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
+    image: koel14/skyblend-frontend:latest
     container_name: skyblend-frontend
     ports:
       - "5173:80"
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
