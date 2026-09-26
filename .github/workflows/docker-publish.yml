@@ -1,0 +1,221 @@
+# ==============================================================================
+# SkyBlend AI — Docker Image Build & Publish to GitHub Container Registry
+# ==============================================================================
+# Triggers: push to main, version tags (v*), manual dispatch
+# Publishes: ghcr.io/koel14-code/skyblend-backend
+#             ghcr.io/koel14-code/skyblend-frontend
+#             ghcr.io/koel14-code/skyblend-ai  (combined single-container)
+# ==============================================================================
+
+name: Build & Publish Docker Images
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  # Lowercase owner — GHCR requires lowercase
+  IMAGE_OWNER: koel14-code
+
+permissions:
+  contents: read
+  packages: write
+  attestations: write
+  id-token: write
+
+# Cancel in-progress runs for the same branch/tag
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+# ---------------------------------------------------------------------------
+# JOBS
+# ---------------------------------------------------------------------------
+jobs:
+
+  # =========================================================================
+  # 1. Build & Push — Backend
+  # =========================================================================
+  build-backend:
+    name: 🐍 Backend
+    runs-on: ubuntu-latest
+
+    outputs:
+      image-digest: ${{ steps.push.outputs.digest }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/skyblend-backend
+          tags: |
+            # On push to main → tag as "latest"
+            type=raw,value=latest,enable={{is_default_branch}}
+            # On version tag (v1.2.3) → tag as "1.2.3" and "1.2" and "1"
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # Always tag with short SHA
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/skyblend-backend
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  # =========================================================================
+  # 2. Build & Push — Frontend
+  # =========================================================================
+  build-frontend:
+    name: ⚛️ Frontend
+    runs-on: ubuntu-latest
+
+    outputs:
+      image-digest: ${{ steps.push.outputs.digest }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/skyblend-frontend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.frontend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/skyblend-frontend
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  # =========================================================================
+  # 3. Build & Push — Combined Single-Container (skyblend-ai)
+  # =========================================================================
+  build-combined:
+    name: 📦 Combined (skyblend-ai)
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/skyblend-ai
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=sha-
+
+      - name: Compute short SHA
+        id: short-sha
+        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.render
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Combined image uses debian-based nginx — arm64 cross-compile is heavy;
+          # build amd64 only for the combined image to keep CI fast.
+          platforms: linux/amd64
+          build-args: |
+            FRONTEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/skyblend-frontend:sha-${{ steps.short-sha.outputs.sha }}
+            BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/skyblend-backend:sha-${{ steps.short-sha.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/skyblend-ai
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

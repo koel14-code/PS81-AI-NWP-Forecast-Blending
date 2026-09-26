@@ -1,0 +1,29 @@
+# ==============================================================================
+# SkyBlend AI — Docker Compose (GitHub Container Registry)
+# ==============================================================================
+# Pull pre-built public images from ghcr.io — no build required.
+#
+# Usage:
+#   docker compose -f docker-compose.ghcr.yml up
+#
+# Or use the single-container image directly:
+#   docker run -p 5173:10000 ghcr.io/koel14-code/skyblend-ai:latest
+# ==============================================================================
+
+services:
+  backend:
+    image: ghcr.io/koel14-code/skyblend-backend:latest
+    container_name: skyblend-backend
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/koel14-code/skyblend-frontend:latest
+    container_name: skyblend-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped

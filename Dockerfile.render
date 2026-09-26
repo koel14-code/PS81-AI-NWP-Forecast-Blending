@@ -5,10 +5,13 @@
 # =====================================================================
 
 # Stage 1: Extract pre-compiled React/Vite dashboard bundle
-FROM koel14/skyblend-frontend:latest AS frontend-assets
+ARG FRONTEND_IMAGE=koel14/skyblend-frontend:latest
+ARG BACKEND_IMAGE=koel14/skyblend-backend:latest
+
+FROM ${FRONTEND_IMAGE} AS frontend-assets
 
 # Stage 2: Combined Production Runtime
-FROM koel14/skyblend-backend:latest
+FROM ${BACKEND_IMAGE}
 
 # Install Nginx, envsubst (gettext-base), and curl
 RUN apt-get update && \
